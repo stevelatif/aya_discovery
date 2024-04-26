@@ -1,0 +1,54 @@
+# -*- fill-column: 76; -*-
+#+OPTIONS: toc:nil num:nil
+#+BEGIN_EXPORT html
+---
+layout: post
+title: <title>
+subtitle: <subtitle>
+tags: [<tags>]
+---
+#+END_EXPORT
+#+TITLE: Tutorial: Basic00 - Setting up the tools and environment
+
+
+Welcome to the first step in this XDP tutorial.
+
+* Assumptions 
+All the examples will be run on Ubuntu Linux. On other distributions your mileage may vary
+
+* First step: setup dependencies
+Install packages 
+#+begin_example sh
+$ sudo apt install clang llvm libelf-dev libpcap-dev build-essential libc6-dev-i386  \
+graphviz  make gcc libssl-dev bc libelf-dev libcap-dev clang gcc-multilib  \
+libncurses5-dev git pkg-config libmnl-dev bison flex linux-tools-$(uname -r)
+#+end_example
+
+Verify that you have `bpftool` installed on your system
+#+begin_example sh
+$ sudo bpftool prog 
+#+end_example
+
+If there are problems installing it from a package, you can install it from source:
+#+begin_example sh
+$ git clone --recurse-submodules https://github.com/libbpf/bpftool.git
+$ cd bpftool/src
+$ make -j$(nproc)
+$ sudo ./bpftool prog
+#+end_example
+
+Install rust, following the instructions at https://rustup.rs/
+#+begin_example sh
+$ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+#+end_example
+
+Once you have rust and cargo installed and in your path, install the following rust related tools:
+#+begin_example sh
+$ rustup udpate
+$ cargo install cargo-generate
+$ cargo install bpf-linker
+$ cargo install cargo-generate
+$ cargo install rustfmt
+$ cargo install bpf-linker
+#+end_example
+
