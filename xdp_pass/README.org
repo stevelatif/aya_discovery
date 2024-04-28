@@ -1,0 +1,342 @@
+# -*- fill-column: 76; -*-
+#+OPTIONS: toc:nil num:nil
+#+BEGIN_EXPORT html
+---
+layout: post
+title: First Steps with XDP 
+subtitle: Part One
+tags: [ebpf, rust, linux]
+---
+#+END_EXPORT
+#+TITLE: Tutorial: Basic01 - loading your first BPF program
+#+OPTIONS: ^:nil
+
+* Running the first XDP Program
+Welcome to the first step in this XDP tutorial.
+
+
+The first Ebpf  XDP program will be an exercise in generating and building,
+loading and examining the running programs. This assumes that you have
+already set up the pre requesists !!!INSERT_HERE!!!
+Going through these steps will ensure that you can build an XDP program
+using the Clang compiler, load it into the running linux kernel. The Ebpf
+program will load into the running kernel where it will be verified. 
+
+The Ebpf program will run in a virtual machine that is built into the Linux
+kerenel. This virtual machine has nine general purpose registers and one 
+read only register R10 that functions as a frame pointer. Clearly running anything
+that can be loaded dyamically in the kernel with elevated privileges can 
+be potentially serious security issue. The Ebpf virtual machine contains 
+a verifier see [[https://docs.kernel.org/bpf/verifier.html]]
+The verifier will check and reject if the program that contains:
+- loops 
+- any type of pointer arithmetic
+- bounds or alignment violations
+- unreachable instructions
+
+There are other restrictions, consult the documenation 
+
+If you have worked with rust code with cargo before, you will have cycled 
+through iterations of 
+#+begin_example sh
+cargo build
+cargo run
+#+end_example
+
+Where the source tree of a simple application would like:
+#+begin_example
+$ tree
+.
+├── Cargo.toml
+└── src
+    └── main.rs
+
+1 directory, 2 files
+
+#+end_example
+
+and after the application had been compiled:
+#+begin_example
+$ cargo build
+   Compiling hello v0.1.0 (/tmp/hello)
+    Finished dev [unoptimized + debuginfo] target(s) in 1.07s
+$ tree
+.
+├── Cargo.lock
+├── Cargo.toml
+├── src
+│   └── main.rs
+└── target
+    ├── CACHEDIR.TAG
+    └── debug
+        ├── build
+        ├── deps
+        │   ├── hello-20e1cfc616fb61ac
+        │   └── hello-20e1cfc616fb61ac.d
+        ├── examples
+        ├── hello
+        ├── hello.d
+        └── incremental
+            └── hello-3iozzekpyrysr
+                ├── s-gvk87j1cfi-6yflog-9nq5zq3lt8rcg1slvtqhu2l92
+                │   ├── 1cwggjlit3xor5e4.o
+                │   ├── 3nmgwmthvx9ijli.o
+                │   ├── 3qweoew2z2q7s3nh.o
+                │   ├── 4j2x83e2uqqcjw4i.o
+                │   ├── 4pluyvgu1vsjgq2o.o
+                │   ├── 54dgri4zf1sqnocs.o
+                │   ├── dep-graph.bin
+                │   ├── query-cache.bin
+                │   └── work-products.bin
+                └── s-gvk87j1cfi-6yflog.lock
+
+9 directories, 18 files
+#+end_example
+
+The compiled binary can be found in target/debug/hello and can be run 
+directly from that location or by using cargo
+#+begin_example sh
+$ cargo run
+    Finished dev [unoptimized + debuginfo] target(s) in 0.02s
+     Running `target/debug/hello`
+Hello, world!
+#+end_example
+
+The aya framework creates two programs, an eBPF program that will 
+be loaded into the kernel and userspace program that will be load the
+eBPF program, and can also pass and receive data with the eBPF program.
+
+Setting up the code framework will be set up using a template, this will 
+set up a the eBPF code and the userspace program. 
+The eBPF program will be compiled and run using a cargo 
+workflow extension:
+#+begin_example sh
+cargo xtask build-ebpf
+#+end_example
+
+Compilation is a two stage process:
+#+begin_example sh
+cargo xtask build-ebpf
+cargo build
+#+end_example
+
+* Generating the code
+Assuming that we have cargo and the generate extension have been installed, we
+can generate the code, at the prompt select xdp-pass as the project name
+
+Using the template, generate the code in directory `xdp-pass`, select the xdp option.
+
+#+begin_example sh
+$ cargo generate https://github.com/aya-rs/aya-template  
+⚠️   Favorite `https://github.com/aya-rs/aya-template` not found in config, using it as a git repository: https://github.com/aya-rs/aya-template
+🤷   Project Name: xdp-pass
+🔧   Destination: /home/steve/articles/learning_ebpf_with_rust/xdp-tutorial/basic01-xdp-pass/xdp-pass ...
+🔧   project-name: xdp-pass ...
+🔧   Generating template ...
+? 🤷   Which type of eBPF program? ›
+  cgroup_skb
+  cgroup_sockopt
+  cgroup_sysctl
+  classifier
+  fentry
+  fexit
+  kprobe
+  kretprobe
+  lsm
+  perf_event
+  raw_tracepoint
+  sk_msg
+  sock_ops
+  socket_filter
+  tp_btf
+  tracepoint
+  uprobe
+  uretprobe
+❯ xdp
+#+end_example
+
+
+The generated files:
+
+#+begin_example sh
+$ tree xdp-pass/
+xdp-pass/
+├── Cargo.toml
+├── README.md
+├── xdp-pass
+│   ├── Cargo.toml
+│   └── src
+│       └── main.rs
+├── xdp-pass-common
+│   ├── Cargo.toml
+│   └── src
+│       └── lib.rs
+├── xdp-pass-ebpf
+│   ├── Cargo.toml
+│   ├── rust-toolchain.toml
+│   └── src
+│       └── main.rs
+└── xtask
+    ├── Cargo.toml
+    └── src
+        ├── build_ebpf.rs
+        ├── main.rs
+        └── run.rs
+
+8 directories, 13 files
+#+end_example
+
+
+Look at the file: file:xdp-pass/xdp-pass-ebpf/src/main.rs
+
+#+begin_src rust
+#![no_std]
+#![no_main]
+
+use aya_ebpf::{bindings::xdp_action, macros::xdp, programs::XdpContext};
+
+#[xdp]
+pub fn xdp_pass(_ctx: XdpContext) -> u32 {
+    xdp_action::XDP_PASS
+}
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    unsafe { core::hint::unreachable_unchecked() }
+}
+#+end_src
+
+
+The templated code will run and return `XDP_PASS` 
+
+** Compile the code
+
+#+begin_example sh
+cargo xtask build-ebpf
+cargo build 
+ #+end_example
+
+Compile in this order else the `cargo build` will fail.
+
+The xtask step will generate the eBPF object file:
+file:./target/bpfel-unknown-none/debug/xdp-pass
+
+** Looking into the BPF-ELF object
+eBPF bytecode is run in a virtual machine in the Linux kernel. There are 10 registers:
+- R0 stores function return values, and the exit value for an eBPF program
+- R1-R5 stores function arguments
+- R6-R9 are for general purpose usage
+- R10 stores adresses for the stack frame
+
+Inspecting the sections of the eBPF file:
+#+begin_example sh
+$ llvm-readelf --sections target/bpfel-unknown-none/debug/xdp-pass
+There are 5 section headers, starting at offset 0x228:
+
+Section Headers:
+  [Nr] Name              Type            Address          Off    Size   ES Flg Lk Inf Al
+  [ 0]                   NULL            0000000000000000 000000 000000 00      0   0  0
+  [ 1] .strtab           STRTAB          0000000000000000 0001c0 000068 00      0   0  1
+  [ 2] .text             PROGBITS        0000000000000000 000040 000098 00  AX  0   0  8
+  [ 3] xdp               PROGBITS        0000000000000000 0000d8 000010 00  AX  0   0  8
+  [ 4] .symtab           SYMTAB          0000000000000000 0000e8 0000d8 18      1   6  8
+Key to Flags:
+  W (write), A (alloc), X (execute), M (merge), S (strings), I (info),
+  L (link order), O (extra OS processing required), G (group), T (TLS),
+  C (compressed), x (unknown), o (OS specific), E (exclude),
+  R (retain), p (processor specific)
+#+end_example
+
+We can see the xdp section we defined with the xdp macro in the code, so lets inspect that
+
+
+#+begin_example sh
+$ llvm-objdump --no-show-raw-insn --section=xdp  -S target/bpfel-unknown-none/debug/xdp-pass
+
+target/bpfel-unknown-none/debug/xdp-pass:       file format elf64-bpf
+
+Disassembly of section xdp:
+
+0000000000000000 <xdp_pass>:
+       0:       r0 = 2
+       1:       exit
+#+end_example
+
+Setting the r0 register to 2 corresponds to returning XDP_PASS
+
+
+Use the IOvisor documentation of the opcodes from here https://github.com/iovisor/bpf-docs/blob/master/eBPF.md
+
+We can run the program using cargo, as its an XDP program we will have to specify a network interface, using the the loopback 
+interface for convenioence:
+#+begin_example sh
+$ RUST_LOG=info cargo xtask run -- -i lo
+    Finished dev [unoptimized + debuginfo] target(s) in 0.02s
+     Running `target/debug/xtask run -- -i lo`
+    Finished `dev` profile [optimized] target(s) in 0.10s
+    Finished dev [unoptimized + debuginfo] target(s) in 0.09s
+[2024-04-28T06:14:44Z WARN  xdp_pass] failed to initialize eBPF logger: log event array AYA_LOGS doesn't exist
+[2024-04-28T06:14:44Z INFO  xdp_pass] Waiting for Ctrl-C...
+
+#+end_example
+
+We can also load eBPF prograns using iproute2
+#+begin_example sh
+ sudo ip link set dev lo xdpgeneric obj   ./target/bpfel-unknown-none/debug/xdp-pass sec xdp
+#+end_example
+
+Running this command will fail due to license issues more about this later.
+#+begin_example sh
+$ sudo ip link set dev lo xdpgeneric obj   ./target/bpfel-unknown-none/debug/xdp-pass sec xdp                                                                                              
+[sudo] password for steve:                                                                                                                                                                                                                                                         
+libbpf: load bpf program failed: Invalid argument                                                                                                                                                                                                                                  
+libbpf: -- BEGIN DUMP LOG ---                                                                                                                                                                                                                                                      
+libbpf:                                                                                                                                                                                                                                                                            
+0: R1=ctx(off=0,imm=0) R10=fp0                                                                                                                                                                                                                                                     
+0: (bf) r6 = r1                       ; R1=ctx(off=0,imm=0) R6_w=ctx(off=0,imm=0)                                                                                                                                                                                                  
+1: (b7) r7 = 0                        ; R7_w=0                                                                                                                                                                                                                                     
+2: (63) *(u32 *)(r10 -4) = r7         ; R7_w=0 R10=fp0 fp-8=0000????                                                                                                                                                                                                               
+3: (bf) r2 = r10                      ; R2_w=fp0 R10=fp0                                                                                                                                                                                                                           
+4: (07) r2 += -4                      ; R2_w=fp-4                                                                                                                                                                                                                                  
+5: (18) r1 = 0xffffa02cd9835c00       ; R1_w=map_ptr(off=0,ks=4,vs=8192,imm=0)                                                                                                                                                                                                     
+7: (85) call bpf_map_lookup_elem#1    ; R0_w=map_value_or_null(id=1,off=0,ks=4,vs=8192,imm=0)                                                                                                                                                                                      
+8: (15) if r0 == 0x0 goto pc+138      ; R0_w=map_value(off=0,ks=4,vs=8192,imm=0)                                                                                                                                                                                                   
+9: (b7) r1 = 11                       ; R1_w=11                                                 
+...
+
+cannot call GPL-restricted function from non-GPL compatible program
+processed 142 insns (limit 1000000) max_states_per_insn 0 total_states 0 peak_states 0 mark_read 0
+
+libbpf: -- END LOG --
+libbpf: failed to load program 'xdp_pass'
+libbpf: failed to load object './target/bpfel-unknown-none/debug/xdp-pass'
+
+#+end_example
+
+We can see the loaded program using bpftool
+#+begin_example sh
+$ sudo bpftool prog 
+...
+4509: xdp  name xdp_pass  tag 3b185187f1855c4c  gpl
+        loaded_at 2024-04-27T23:14:44-0700  uid 0
+        xlated 16B  jited 22B  memlock 4096B
++end_example
+
+We can generate a dot file using bpftool and the id number for 4509 
+from above.
+
+#+begin_example sh
+$ sudo bpftool prog dump xlated id 4509 visual &> 4509.dot
+#+end_example
+
+And then use that to generate an image file with graphviz
+
+#+begin_example sh
+$ dot -Tpng /tmp/4509.dot -o ~/4509.png
+#+end_example
+
+
+file://4509.png
+
+
+
