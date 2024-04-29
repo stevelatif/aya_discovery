@@ -1,3 +1,0 @@
-{
-  "rust-analyzer.linkedProjects": ["Cargo.toml", "hello-world-ebpf/Cargo.toml"]
-}
