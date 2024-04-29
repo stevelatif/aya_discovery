@@ -1,0 +1,2 @@
+[workspace]
+members = ["xtask", "xdp-map-counter", "xdp-map-counter-common"]

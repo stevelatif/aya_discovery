@@ -15,18 +15,18 @@ tags: [ebpf, rust, linux]
 Welcome to the first step in this XDP tutorial.
 
 
-The first Ebpf  XDP program will be an exercise in generating and building,
+The first eBPF  XDP program will be an exercise in generating and building,
 loading and examining the running programs. This assumes that you have
 already set up the pre requesists !!!INSERT_HERE!!!
 Going through these steps will ensure that you can build an XDP program
-using the Clang compiler, load it into the running linux kernel. The Ebpf
+using the Clang compiler, load it into the running linux kernel. The eBPF
 program will load into the running kernel where it will be verified. 
 
-The Ebpf program will run in a virtual machine that is built into the Linux
+The eBPF program will run in a virtual machine that is built into the Linux
 kerenel. This virtual machine has nine general purpose registers and one 
 read only register R10 that functions as a frame pointer. Clearly running anything
 that can be loaded dyamically in the kernel with elevated privileges can 
-be potentially serious security issue. The Ebpf virtual machine contains 
+be potentially serious security issue. The EBPF virtual machine contains 
 a verifier see [[https://docs.kernel.org/bpf/verifier.html]]
 The verifier will check and reject if the program that contains:
 - loops 
@@ -187,7 +187,7 @@ xdp-pass/
 #+end_example
 
 
-Look at the file: file:xdp-pass/xdp-pass-ebpf/src/main.rs
+Look at the file: file:xdp-pass/xdp-pass-ebpf/src/main.rs and modify so it looks like:
 
 #+begin_src rust
 #![no_std]
@@ -285,44 +285,17 @@ We can also load eBPF prograns using iproute2
  sudo ip link set dev lo xdpgeneric obj   ./target/bpfel-unknown-none/debug/xdp-pass sec xdp
 #+end_example
 
-Running this command will fail due to license issues more about this later.
+We can see the loaded program with bpftool:
 #+begin_example sh
-$ sudo ip link set dev lo xdpgeneric obj   ./target/bpfel-unknown-none/debug/xdp-pass sec xdp                                                                                              
-[sudo] password for steve:                                                                                                                                                                                                                                                         
-libbpf: load bpf program failed: Invalid argument                                                                                                                                                                                                                                  
-libbpf: -- BEGIN DUMP LOG ---                                                                                                                                                                                                                                                      
-libbpf:                                                                                                                                                                                                                                                                            
-0: R1=ctx(off=0,imm=0) R10=fp0                                                                                                                                                                                                                                                     
-0: (bf) r6 = r1                       ; R1=ctx(off=0,imm=0) R6_w=ctx(off=0,imm=0)                                                                                                                                                                                                  
-1: (b7) r7 = 0                        ; R7_w=0                                                                                                                                                                                                                                     
-2: (63) *(u32 *)(r10 -4) = r7         ; R7_w=0 R10=fp0 fp-8=0000????                                                                                                                                                                                                               
-3: (bf) r2 = r10                      ; R2_w=fp0 R10=fp0                                                                                                                                                                                                                           
-4: (07) r2 += -4                      ; R2_w=fp-4                                                                                                                                                                                                                                  
-5: (18) r1 = 0xffffa02cd9835c00       ; R1_w=map_ptr(off=0,ks=4,vs=8192,imm=0)                                                                                                                                                                                                     
-7: (85) call bpf_map_lookup_elem#1    ; R0_w=map_value_or_null(id=1,off=0,ks=4,vs=8192,imm=0)                                                                                                                                                                                      
-8: (15) if r0 == 0x0 goto pc+138      ; R0_w=map_value(off=0,ks=4,vs=8192,imm=0)                                                                                                                                                                                                   
-9: (b7) r1 = 11                       ; R1_w=11                                                 
-...
-
-cannot call GPL-restricted function from non-GPL compatible program
-processed 142 insns (limit 1000000) max_states_per_insn 0 total_states 0 peak_states 0 mark_read 0
-
-libbpf: -- END LOG --
-libbpf: failed to load program 'xdp_pass'
-libbpf: failed to load object './target/bpfel-unknown-none/debug/xdp-pass'
+sudo bpftool prog | grep -A 5 xdp
+4509: xdp  name xdp_pass  tag 3b185187f1855c4c
+        loaded_at 2024-04-28T09:15:17-0700  uid 0
+        xlated 16B  jited 22B  memlock 4096B
 
 #+end_example
 
-We can see the loaded program using bpftool
-#+begin_example sh
-$ sudo bpftool prog 
-...
-4509: xdp  name xdp_pass  tag 3b185187f1855c4c  gpl
-        loaded_at 2024-04-27T23:14:44-0700  uid 0
-        xlated 16B  jited 22B  memlock 4096B
-+end_example
 
-We can generate a dot file using bpftool and the id number for 4509 
+We can generate a dump of the bytecode of the running eBPF bytecode using bpftool. Generate a dot file using bpftool and the id number for 4509 
 from above.
 
 #+begin_example sh
@@ -338,5 +311,78 @@ $ dot -Tpng /tmp/4509.dot -o ~/4509.png
 
 file://4509.png
 
+The comparable C version of the eBPF looks like:
+
+#+begin_src c
+/* SPDX-License-Identifier: GPL-2.0 */
+#include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
+SEC("xdp")
+int  xdp_pass_func(struct xdp_md *ctx)
+{
+	return XDP_PASS;
+}
+
+char _license[] SEC("license") = "GPL";
+#+end_src
+
+Which would be compiled like:
+#+begin_example sh
+clang -O2 -target bpf -c ebpf_program.c -o ebpf_program.oh
+#+end_example
 
 
+And loaded:
+#+begin_example sh
+$ sudo  ip link set dev lo xdpgeneric obj   ./xdp_pass.o sec xdp                                                                                                                                                                        
+$ sudo ip link show dev lo                                                                                                                                                                                                              
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 xdpgeneric qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000                                                                                                                                                                
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00                                                                                                                                                                                                                          
+    prog/xdp id 4529 tag 3b185187f1855c4c jited                         
+#+end_example
+
+Dumping the bytecode shows similar sections,
+
+#+begin_example sh
+$ llvm-readelf --sections xdp_pass.o
+There are 7 section headers, starting at offset 0x108:
+
+Section Headers:
+  [Nr] Name              Type            Address          Off    Size   ES Flg Lk Inf Al
+  [ 0]                   NULL            0000000000000000 000000 000000 00      0   0  0
+  [ 1] .strtab           STRTAB          0000000000000000 0000ba 00004e 00      0   0  1
+  [ 2] .text             PROGBITS        0000000000000000 000040 000000 00  AX  0   0  4
+  [ 3] xdp               PROGBITS        0000000000000000 000040 000010 00  AX  0   0  8
+  [ 4] license           PROGBITS        0000000000000000 000050 000004 00  WA  0   0  1
+  [ 5] .llvm_addrsig     LLVM_ADDRSIG    0000000000000000 0000b8 000002 00   E  6   0  1
+  [ 6] .symtab           SYMTAB          0000000000000000 000058 000060 18      1   2  8
+Key to Flags:
+  W (write), A (alloc), X (execute), M (merge), S (strings), I (info),
+  L (link order), O (extra OS processing required), G (group), T (TLS),
+  C (compressed), x (unknown), o (OS specific), E (exclude),
+  R (retain), p (processor specific)
+#+end_example
+
+
+Dissasembly is the same as the Rust version:
+#+begin_example
+steve@Peshawer:~/git/aya_discovery/xdp_pass$ llvm-objdump --no-show-raw-insn --section=xdp  -S ./xdp_pass.o
+
+./xdp_pass.o:   file format elf64-bpf
+
+Disassembly of section xdp:
+
+0000000000000000 <xdp_pass_func_02>:
+       0:       r0 = 2
+       1:       exit
+
+#+end_example
+
+* Summary
+- We can use Rust with the aya crate to build eBPF programs 
+- Load and unload the eBPF programs we created using 
+  - Cargo
+  - ip net2
+- Dissasemble the byte code using 
+  - llvm-objdump
+  - bpftool 
