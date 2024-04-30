@@ -73,8 +73,11 @@ fn try_firewall_002(ctx: XdpContext) -> Result<u32, ()> {
         _ => return Err(()),
     };
 
-    // 
-
+    // Check if match the IP address in the BLOCKED_IPS hash
+    if unsafe { BLOCKED_IPS.get(&source_addr).is_some() } {
+	info!(&ctx, "dropping packet ...");
+	return Ok(xdp_action::XDP_DROP);
+    }
 
     info!(&ctx, "SRC IP: {:i}, SRC PORT: {}", source_addr, source_port);
 

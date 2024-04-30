@@ -21,7 +21,7 @@ struct Opt {
 async fn main() -> Result<(), anyhow::Error> {
     let opt = Opt::parse();
     let config: HashMap<String,String> = Figment::new()
-	.merge(Yaml::file("/home/steve/articles/learning_ebpf_with_rust/firewall/firewall-001/config.yaml"))
+	.merge(Yaml::file("config.yaml"))
 	.extract()?;
 
     println!("Config: {:?}", config);
