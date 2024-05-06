@@ -1,0 +1,257 @@
+# -*- fill-column: 76; -*-
+#+OPTIONS: toc:nil num:nil
+#+BEGIN_EXPORT html
+---
+layout: post
+title: XDP Packet Counter
+subtitle: Part One
+tags: [ebpf, rust, linux]
+---
+#+END_EXPORT
+#+TITLE: Tutorial: Basic03 - XDP Packet Counter
+#+OPTIONS: ^:nil
+
+
+* First step: setup dependencies
+We will leverage some of the tools in the XDP tutorial: https://github.com/xdp-project/xdp-tutorial
+Checkout the code from there:
+#+begin_example sh
+git clone https://github.com/xdp-project/xdp-tutorial.git
++end_example
+
+#+begin_example sh
+	$ sudo apt install libssl-dev
+	$ cargo install cargo-generate
+	$ cargo install bpf-linker
+#+end_example
+
+* Generating the code
+
+Using the template, generate the code in directory `xdp-prog-by-name`
+
+#+begin_example sh
+$ cargo generate https://github.com/aya-rs/aya-template  
+⚠️   Favorite `https://github.com/aya-rs/aya-template` not found in config, using it as a git repository: https://github.com/aya-rs/aya-template
+🤷   Project Name: xdp-pass
+🔧   Destination: /home/steve/articles/learning_ebpf_with_rust/xdp-tutorial/basic01-xdp-pass/xdp-pass ...
+🔧   project-name: xdp-pass ...
+🔧   Generating template ...
+? 🤷   Which type of eBPF program? ›
+  cgroup_skb
+  cgroup_sockopt
+  cgroup_sysctl
+  classifier
+  fentry
+  fexit
+  kprobe
+  kretprobe
+  lsm
+  perf_event
+  raw_tracepoint
+  sk_msg
+  sock_ops
+  socket_filter
+  tp_btf
+  tracepoint
+  uprobe
+  uretprobe
+❯ xdp
+
+#+end_example
+
+* Modify the generated source code
+
+In the userspace code lets add a PerCpuArray map:
+the start of the file should look like this:
+
+#+begin_example rust
+use anyhow::Context;
+use aya::programs::{Xdp, XdpFlags};
+use aya::{include_bytes_aligned, Bpf};
+use aya::maps::PerCpuValues;
+use aya::maps::PerCpuArray;
+use aya_log::BpfLogger;
+use clap::Parser;
+use log::{info, warn, debug};
+use tokio::signal;
+use aya::util::nr_cpus;
+
+#+end_example
+
+And after the section loading the eBPF code, add this:
+
+#+begin_example rust
+    let program: &mut Xdp = bpf.program_mut("xdp_map_counter").unwrap().try_into()?;
+    program.load()?;
+    program.attach(&opt.iface, XdpFlags::default())
+        .context("failed to attach the XDP program with default flags - try changing XdpFlags::default() to XdpFlags::SKB_MODE")?;
+
+    let mut array = PerCpuArray::try_from(bpf.map_mut("ARRAY").unwrap())?;
+
+    // set array[1] = 42 for all cpus
+    let nr_cpus = nr_cpus()?;
+    array.set(1, PerCpuValues::try_from(vec![42u32; nr_cpus])?, 0)?;
+    
+    // retrieve the values at index 1 for all cpus
+    let values = array.get(&1, 0)?;
+    assert_eq!(values.len(), nr_cpus);
+    for cpu_val in values.iter() {
+	assert_eq!(*cpu_val, 42u32);
+    }
+#+end_example
+
+
+In the ebf code file:/xdp-map-counter/xdp-map-counter-ebpf/src/main.rs
+the header section should look like this:
+#+begin_example rust
+#![no_std]
+#![no_main]
+
+use aya_ebpf::{bindings::xdp_action,
+	       macros::{xdp, map},
+	       programs::XdpContext,
+	       cty::c_void,
+	       helpers::{bpf_map_lookup_percpu_elem},
+	       maps::PerCpuArray,
+};
+use aya_log_ebpf::info;
+use core::mem;
+use network_types::{
+    eth::{EthHdr, EtherType},
+    ip::{IpProto, Ipv4Hdr},
+    tcp::TcpHdr,
+    udp::UdpHdr,
+};
+use core::ptr::addr_of_mut;
+#+end_example
+
+While the rest of the file should be:
+
+#+begin_example rust
+#[map(name="ARRAY")]
+static mut COUNTER: PerCpuArray<u32> = PerCpuArray::with_max_entries(1024, 0);
+const CPU_CORES: u32 = 16;
+
+#[xdp]
+pub fn xdp_map_counter(ctx: XdpContext) -> u32 {
+    match try_xdp_map_counter(ctx) {
+        Ok(ret) => ret,
+        Err(_) => xdp_action::XDP_ABORTED,
+    }
+}
+
+#[inline(always)] // 
+
+// function to parse packets
+fn ptr_at<T>(ctx: &XdpContext, offset: usize) -> Result<*const T, ()> {
+    let start = ctx.data();
+    let end = ctx.data_end();
+    let len = mem::size_of::<T>();
+
+    if start + offset + len > end {
+        return Err(());
+    }
+
+    Ok((start + offset) as *const T)
+}
+
+
+fn try_xdp_map_counter(ctx: XdpContext) -> Result<u32, ()> {
+    //Ok(xdp_action::XDP_PASS)
+    let ethhdr: *const EthHdr = ptr_at(&ctx, 0)?; // 
+
+    match unsafe { (*ethhdr).ether_type } {
+        EtherType::Ipv4 => {}
+        _ => return Ok(xdp_action::XDP_PASS),
+    }
+
+    let ipv4hdr: *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN)?;
+    let source_addr = u32::from_be(unsafe { (*ipv4hdr).src_addr });
+
+    let source_port = match unsafe { (*ipv4hdr).proto } {
+        IpProto::Tcp => {
+            let tcphdr: *const TcpHdr =
+                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
+            u16::from_be(unsafe { (*tcphdr).source })
+        }
+        IpProto::Udp => {
+            let udphdr: *const UdpHdr =
+                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
+            u16::from_be(unsafe { (*udphdr).source })
+        }
+        _ => return Err(()),
+    };
+
+
+    let total = get_total_cpu_counter(CPU_CORES);
+    unsafe {
+        let counter = COUNTER
+            .get_ptr_mut(0)
+	    .ok_or(())? ;
+	    
+        *counter += 1;
+    }
+    info!(&ctx, "{} SRC IP: {:i}, SRC PORT: {}", total, source_addr, source_port);
+    Ok(xdp_action::XDP_PASS)
+
+}
+
+#[inline(always)]
+fn get_total_cpu_counter(cpu_cores: u32) -> u32 {
+    let mut sum: u32 = 0;
+    for cpu in 0..cpu_cores {
+        let c = unsafe {
+            bpf_map_lookup_percpu_elem(
+                 addr_of_mut!(COUNTER) as *mut _ as *mut c_void,
+                &0 as *const _ as *const c_void,
+                cpu,
+            )
+        };
+        
+        if !c.is_null() {
+            unsafe {
+                let counter = &mut *(c as *mut u32);
+                sum += *counter;
+            }
+        }
+    }
+    sum
+}
+
+#+end_example
+
+Compiling and running the code:
+#+begin_example sh
+ 
+$ RUST_LOG=info cargo xtask run -- -i lo                                                                                                                                         
+warning: virtual workspace defaulting to `resolver = "1"` despite one or more workspace members being on edition 2021 which implies `resolver = "2"`                                                                                                                               
+note: to keep the current resolver, specify `workspace.resolver = "1"` in the workspace root's manifest                                                                                                                                                                            
+note: to use the edition 2021 resolver, specify `workspace.resolver = "2"` in the workspace root's manifest                                                                                                                                                                        
+note: for more details see https://doc.rust-lang.org/cargo/reference/resolver.html#resolver-versions                                                                                                                                                                               
+    Finished dev [unoptimized + debuginfo] target(s) in 0.02s                                                                                                                                                                                                                      
+     Running `target/debug/xtask run -- -i lo`                                                                                                                                                                                                                                     
+    Finished `dev` profile [optimized] target(s) in 0.11s                                                                                                                                                                                                                          
+warning: virtual workspace defaulting to `resolver = "1"` despite one or more workspace members being on edition 2021 which implies `resolver = "2"`                                                                                                                               
+note: to keep the current resolver, specify `workspace.resolver = "1"` in the workspace root's manifest                                                                                                                                                                            
+note: to use the edition 2021 resolver, specify `workspace.resolver = "2"` in the workspace root's manifest                                                                                                                                                                        
+note: for more details see https://doc.rust-lang.org/cargo/reference/resolver.html#resolver-versions                                                                                                                                                                               
+    Finished dev [unoptimized + debuginfo] target(s) in 0.08s                                                                                                                                                                                                                      
+[2024-04-16T21:01:19Z INFO  xdp_map_counter] Waiting for Ctrl-C...                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                   
+[2024-04-16T21:01:49Z INFO  xdp_map_counter] 0 SRC IP: 127.0.0.1, SRC PORT: 39567                                                                                                                                                                                                  
+[2024-04-16T21:01:49Z INFO  xdp_map_counter] 1 SRC IP: 127.0.0.1, SRC PORT: 39567                                                                                                                                                                                                  
+[2024-04-16T21:01:49Z INFO  xdp_map_counter] 2 SRC IP: 127.0.0.53, SRC PORT: 53                                                                                                                                                                                                    
+[2024-04-16T21:01:49Z INFO  xdp_map_counter] 3 SRC IP: 127.0.0.53, SRC PORT: 53                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                   
+[2024-04-16T21:02:50Z INFO  xdp_map_counter] 4 SRC IP: 127.0.0.1, SRC PORT: 55602                                                                                                                                                                                                  
+[2024-04-16T21:02:50Z INFO  xdp_map_counter] 5 SRC IP: 127.0.0.1, SRC PORT: 22                                                                                                                                                                                                     
+[2024-04-16T21:02:50Z INFO  xdp_map_counter] 6 SRC IP: 127.0.0.1, SRC PORT: 55602                                                                                                                                                                                                  
+[2024-04-16T21:02:50Z INFO  xdp_map_counter] 7 SRC IP: 127.0.0.1, SRC PORT: 55602                                                                                                                                                                                                  
+[2024-04-16T21:02:50Z INFO  xdp_map_counter] 8 SRC IP: 127.0.0.1, SRC PORT: 22                                                                                                                                                                                                     
+[2024-04-16T21:02:50Z INFO  xdp_map_counter] 9 SRC IP: 127.0.0.1, SRC PORT: 22                                                                                                                                                                                                     
+[2024-04-16T21:02:50Z INFO  xdp_map_counter] 10 SRC IP: 127.0.0.1, SRC PORT: 55602                                                                                                                                                                                                 
+[2024-04-16T21:02:50Z INFO  xdp_map_counter] 11 SRC IP: 127.0.0.1, SRC PORT: 55602                                                                                                                                                                                                 
+[2024-04-16T21:02:50Z INFO  xdp_map_counter] 12 SRC IP: 127.0.0.1, SRC PORT: 22                                                                                                                                                                                                    
+[2024-04-16T21:02:50Z INFO  xdp_map_counter] 13 SRC IP: 127.0.0.1, SRC PORT: 55602                                                                                                                                                                                                 
+[2024-04-16T21:02:50Z INFO  xdp_map_counter] 14 SRC IP: 127.0.0.1, SRC PORT: 22                                     
+#+end_example
