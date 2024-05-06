@@ -1,0 +1,245 @@
+# -*- fill-column: 76; -*-
+#+OPTIONS: toc:nil num:nil
+#+BEGIN_EXPORT html
+---
+layout: post
+title: Packet Parsing an Introduction
+subtitle: Part One
+tags: [ebpf, rust, linux]
+---
+#+END_EXPORT
+#+TITLE: Tutorial: Packet Parsing and building a basic Firewall
+#+OPTIONS: ^:nil
+
+
+* Creatung a simple Firewall
+Using eBPF we can create a simple firewall/router. With a small amnount of code we can 
+drop packets or redirect packets based on the source anb destination IP addresses 
+and port numbers. We will implement this in several stages using a hashmap to store the 
+list of IP addresses. 
+The intial version will load the IP addresses from user space and to the eBPF kernel code,
+and with each iteration we can add more functionality.
+
+As before generate the code and then we will modify the ebpf and userspace code 
+
+#+begin_example sh
+$ cargo generate https://github.com/aya-rs/aya-template  
+⚠️   Favorite `https://github.com/aya-rs/aya-template` not found in config, using it as a git repository: https://github.com/aya-rs/aya-template
+🤷   Project Name: firewall-001
+🔧   Destination: projects/firewall001 ...
+🔧   project-name: firewall-001 ...
+🔧   Generating template ...
+? 🤷   Which type of eBPF program? ›
+  cgroup_skb
+  cgroup_sockopt
+  cgroup_sysctl
+  classifier
+  fentry
+  fexit
+  kprobe
+  kretprobe
+  lsm
+  perf_event
+  raw_tracepoint
+  sk_msg
+  sock_ops
+  socket_filter
+  tp_btf
+  tracepoint
+  uprobe
+  uretprobe
+❯ xdp
+
+#+end_example
+
+* Modify the generated source code
+Modify ebpf firewall-001-ebpf/Cargo.toml to include a dependency 
+for the network-types crate:
+
+#+begin_example toml
+[dependencies]
+aya-ebpf = "0.1.0"
+aya-log-ebpf = "0.1.0"
+firewall-002-common = { path = "../firewall-001-common" }
+network-types = "0.0.5"
+#+end_example
+
+Then modify the ebpf code in firewall-001-ebpf/src/main.rs
+so we can add HashMap map 
+
+In the ebf code file:/xdp-map-counter/xdp-map-counter-ebpf/src/main.rs
+the header section should look like this:
+#+begin_example rust
+use aya_ebpf::{bindings::xdp_action,
+	       macros::{xdp, 
+	       map }, // <---- added map macro
+	       programs::XdpContext,
+	       maps::HashMap // <--- added hashmaps
+	       };
+use aya_log_ebpf::info;
+use core::mem;    // <--- added memory crate
+
+use network_types::{ // Added
+    eth::{EthHdr, EtherType}, 
+    ip::{IpProto, Ipv4Hdr},
+    tcp::TcpHdr,
+    udp::UdpHdr,
+};
+#+end_example
+
+
+Add the map definition:
+#+begin_example rust
+#[map(name = "SRC_IP_FILTER")]
+static mut SRC_IP_FILTER: HashMap<u32, u8> =
+    HashMap::<u32, u8>::with_max_entries(1024, 0);
+#+end_example
+
+As we are working with the eBPF subsystem in the kernel we 
+will need to work directtly with raw pointers. This is where
+will use the core::mem crate. We need to check the size 
+of data or the verifier will complain
+#+begin_example rust
+fn ptr_at<T>(ctx: &XdpContext, offset: usize) -> Result<*const T, ()> {
+    let start = ctx.data();
+    let end = ctx.data_end();
+    let len = mem::size_of::<T>();
+    if start + offset + len > end {
+        return Err(());
+    }
+    Ok((start + offset) as *const T)
+}
+#+end_example 
+
+The packet parsing will be done in the try_firewal_001 function. We willl peel off 
+the layers of each packet till we match the rules passed in by the map IP
+#+begin_src rust
+    let ethhdr: *const EthHdr = ptr_at(&ctx, 0)?; // 
+    match unsafe { (*ethhdr).ether_type } {
+        EtherType::Ipv4 => {
+	    info!(&ctx, "received IPv4 packet");
+	}
+        EtherType::Ipv6 => {
+	    info!(&ctx, "received IPv6 packet");
+	    return Ok(xdp_action::XDP_DROP);
+	}
+
+        _ => return Ok(xdp_action::XDP_PASS),
+    }
+#+end_src
+
+We pass all IPv4 packets but drop any IPv6 packets, in the next section 
+we start to unpack the IPv4 header, first we get the port 
+
+#+begin_example rust
+    let source_port = match unsafe { (*ipv4hdr).proto } {
+        IpProto::Tcp => {
+            let tcphdr: *const TcpHdr =
+                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
+            u16::from_be(unsafe { (*tcphdr).source })
+        }
+        IpProto::Udp => {
+            let udphdr: *const UdpHdr =
+                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
+            u16::from_be(unsafe { (*udphdr).source })
+        }
+        _ => return Err(()),
+    };
+
+#+end_example
+
+Then we check if the ip address is one in our list of blocked ip addresses
+
+#+begin_example rust
+    if unsafe { SRC_IP_FILTER.get(&source_addr).is_some() } {
+	info!(&ctx, "dropping packet ...");
+	return Ok(xdp_action::XDP_DROP);
+    }
+#+end_example
+
+The user space code reads a YAML config file that contains a list of IP addresses and
+an instruction as to what to do to the packets coming from that address. 
+#+begin_example yaml
+---
+"127.0.0.1" : "block"
+"10.0.0.1"  : "block"
+"10.0.0.2"  : "block"
+#+end_example
+
+We will use the figment crate to parse the YAML config file into a 
+hashmap that can be loaded into the eBPF map. 
+
+Modify the Cargo.toml file in firewall-001/Cargo.toml to include
+the dependency:
+#+begin_src  toml
+figment = { version = "0.10.18", features = ["yaml", "env"] }
+#+end_src
+
+And then add the following to the userspace rust code in firewall-001/src/main.rs
+#+begin_src rust
+use std::net::Ipv4Addr;
+use figment::{Figment, providers::{Yaml, Format}};
+...
+#[tokio::main]
+async fn main() -> Result<(), anyhow::Error> {
+    let opt = Opt::parse();
+    let config: HashMap<String,String> = Figment::new()
+	.merge(Yaml::file("config.yaml"))
+	.extract()?;
+#+end_src
+Here we extract the config file into a HashMap<String,String>
+Once we have the entries from our config file in the a HashMap 
+we can load them into the hashmap created in the ebpf code. 
+
+#+begin_src rust
+let mut src_ip_filter : ayaHashMap<_,  u32, u8> =
+	ayaHashMap::try_from( bpf.map_mut("SRC_IP_FILTER").unwrap())?;
+...
+    for (k, v)  in config {
+	if v == "block" {
+	    let addr : Ipv4Addr  = k.parse().unwrap();
+	    println!("addr {:?}" , addr);
+	    let _ = src_ip_filter.insert(u32::from(addr), 1, 0);
+	}
+    }
+#+end_src
+
+The IP addresses get loaded into the map and are then visible in the
+eBPF code running in the kernel.
+
+
+We can use the loopback address 127.0.0.1 to test whether the firewall works
+First load the eBPF program and attach it to the loopback interface
+#+begin_example sh
+RUST_LOG=info cargo xtask run -- -i lo 
+#+end_example
+
+
+We can check that it is loaded using bpftool
+#+begin_example sh
+$ sudo bpftool prog list | grep -A 5 firewall
+5118: xdp  name firewall_002  tag 64a3874abd9070d2  gpl
+        loaded_at 2024-05-01T23:27:54-0700  uid 0
+        xlated 7008B  jited 3759B  memlock 8192B  map_ids 1532,1534,1533,1535
+#+end_example 
+
+We can use the netcat program to test it. 
+In one terminal start a server listening on port 9090
+#+begin_example sh
+nc -l 9090
+#+end_example
+
+In another terminal send data to the server:
+#+begin_example sh
+echo "the quick brown fox jumped over the lazy dog" |  nc 127.0.0.1 9090
+#+end_example
+
+In the terminal running the cargo command:
+#+begin_example
+2024-05-02T06:37:27Z INFO  firewall_002] received IPv4 packet
+[2024-05-02T06:37:27Z INFO  firewall_002] dropping packet ...
+...
+#+end_example
+
+In the netcat server window there will no output showing receipt of a packet
+
