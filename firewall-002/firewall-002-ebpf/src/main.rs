@@ -15,8 +15,8 @@ use network_types::{
     udp::UdpHdr,
 };
 
-#[map(name = "BLOCKED_IPS")]
-static mut BLOCKED_IPS: HashMap<u32, u8> =
+#[map(name = "SRC_IP_FILTER")]
+static mut SRC_IP_FILTER: HashMap<u32, u8> =
     HashMap::<u32, u8>::with_max_entries(1024, 0);
 
 #[inline(always)]
@@ -73,8 +73,8 @@ fn try_firewall_002(ctx: XdpContext) -> Result<u32, ()> {
         _ => return Err(()),
     };
 
-    // Check if match the IP address in the BLOCKED_IPS hash
-    if unsafe { BLOCKED_IPS.get(&source_addr).is_some() } {
+    // Check if match the IP address in the SRC_IP_FILTER hash
+    if unsafe { SRC_IP_FILTER.get(&source_addr).is_some() } {
 	info!(&ctx, "dropping packet ...");
 	return Ok(xdp_action::XDP_DROP);
     }

@@ -62,15 +62,15 @@ async fn main() -> Result<(), anyhow::Error> {
         .context("failed to attach the XDP program with default flags - try changing XdpFlags::default() to XdpFlags::SKB_MODE")?;
 
     // Create a map
-    let mut blocked_ips : ayaHashMap<_,  u32, u8> =
-	ayaHashMap::try_from( bpf.map_mut("BLOCKED_IPS").unwrap())?;
+    let mut src_ip_filter : ayaHashMap<_,  u32, u8> =
+	ayaHashMap::try_from( bpf.map_mut("SRC_IP_FILTER").unwrap())?;
 
     for (k, v)  in config {
 	//let addr: Ipv4Addr ;
 	if v == "block" {
 	    let addr : Ipv4Addr  = k.parse().unwrap();
 	    println!("addr {:?}" , addr);
-	    let _ = blocked_ips.insert(u32::from(addr), 1, 0);
+	    let _ = src_ip_filter.insert(u32::from(addr), 1, 0);
 	}
     }
     // end map
