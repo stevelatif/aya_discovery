@@ -12,108 +12,112 @@ tags: [ebpf, rust, linux]
 #+AUTHOR: Steve Latif
 #+EMAIL: stevelatif@gmail.com
 #+OPTIONS: ^:nil
+&copy; steve latif 
 
 * Introduction
-I've been playinig around with Rust and eBPF recently and a large
-part of that motivation was work I did several years ago.
+This is the first in a series of posts looking at eBPF and the
+Rust Aya crate. eBPF can run sandboxed programs inside the kernel.
+Aya can create the byte code for both the kernel space
+programs, and the corresponding  userland programs to load the eBPF byte code.
+
+The Extended Berkeley Packet Filter came out as a development on 
+the classic Berkeley Packet Filter
+dating back to the early 1990s. 
+The classic BPF based tools tcpdump, ethereal and 
+the libpcap libraries were used to capture
+network packets on the wire, filter them, even inject faults. 
+Doing anything  other than monitoring packets was a time intensive and tricky 
+operation. More information eBPF can be found here: https://ebpf.io/
 
 Rust has been around for several years and works well as a system and 
 general programming language. There are many fine introductions to the language
 a good place to start is here: https://www.rust-lang.org/
 
-eBPF is the extended Berkely Packet Filter. The original BPF has 
-been around a long time and is the basis for tools like tcpdump, ethereal, 
-and wireshark. The eBPF infrastructure is that and so much more than
-sniffing network packets : https://ebpf.io/
 
+In this series of articles we will be looking at 
 aya-rs is a rust interface to eBPF https://aya-rs.dev/
 
-There are two scenarios that I want to consider reworking from my past
+
+Two past projects act as motivation for my work with 
+eBPF and aya.
 
 ** Scenario 1 SMB Traffic generation
-I was asked to replicate a customer issue 
-where the network interface on 
-a storage filer that was locking up after having 
+The network interface on 
+a storage filer was locking up after having 
 mounted 255 SMB network shares. 
-I was able to do this in a few days using 
+To emulate this 
 - a linux client box 
 - smbclient, an FTP like interface to Samba
 - Maxwell Pro from Interworking Labs (iwl.com) to rewrite ethernet headers. 
 Quick side note on the Maxwell Pro, it 
-consists of a linux box with two ehternet cards, packets coming in are passed to 
-a userspace application, where they can be modified or have their headers
+consists of a linux box with two ethernet cards, packets coming in are passed to 
+a user space application, where they can be modified or have their headers
 rewritten, they are then passed out from the other interface.
 [[./images/maxwell_pro.png]]
 
- a jerry rigged a system where 
-socket calls would get intercepted and the rewritten from the 
-smbclient application using the dynamic linking loader: 
-#+begin_example c
-#include <dlfcn.h>
-void *dlopen(const char *filename, int flag);
-char *dlerror(void);
-void *dlsym(void *handle, const char *symbol);
-int dlclose(void *handle); 
-#+end_example
-I got something working and then extended it to validatee that the filer could 
-work as required after a fix was installed, and support severeal 
-thousand concurrent SMB mounts. 
-A few hundred lines of C, C++, shell, and Perl, up and running in less than a week.
-It would work 50% of the time, but that was sufficient. 
+This had to be thrown together in a few days using whatever was at hand.
+The test bed was a Rube Goldberg contraption that occasionally worked
 
-Here's a schematic of the setup, bear in mind that this is Linux circa 2004, so there was
-no eBPF, virtual interfaces were more limited in there capabilities. 
+Here's a schematic of the setup, bear in mind that this is Linux circa 2004, 
+Linux networking was more limited in its capabilities. 
 [[./images/smb_test_bed.png]]
+
+This would simulate from several hundred, to several thousand windows computers
+mounting a network share. The share requests would come in from distinct IP and MAC 
+addresses.
 
 There are 3 hosts:
 - a linux client
-  - Depending on the test, this will have between 300 - 5000 virtual ip addresses, each with a unique IP
+  - Depending on the test, this will have between 300 - 5000 virtual IP addresses, each with a unique IP
 - An IWL Maxwell Pro to rewrite the ethernet headers (iwl.com)
 - The device under test: An SMB server
 
-- A C wrapper script would run smbclient 
-  - each smblcient invocation would have it's socket call intercepted and bound to one of the IP addresses
-  - The Maxwell Pro would rewrite the outgoing mac address to one based on the IP address
-  - SMB server would resopond to the smbclient request
-- The Maxwell Pro would rewrite the SMB server response so that the mac address was the correct one on the linux client
+The procedure:
+- A C wrapper script would run multiple invocations of smbclient 
+  - each smblcient invocation would have it's socket call intercepted and bound to one of the IP addresses 
+    using the dynamic linking loader [[https://man7.org/linux/man-pages/man3/dlopen.3.html]]
+
+  - The Maxwell Pro would rewrite the outgoing MAC address to one based on the IP address
+  - SMB server would respond to the smbclient request
+  - The response packets would be intercepted by the Maxwell Pro which would rewrite the SMB server response so that the MAC address was the actual MAC on the linux client
 
 If we were to try to get this working now, could we do it in a more robust manner and not have:
-- The Maxwell Pro?
-- Manipulating the dynamic linking loader?
+- The Maxwell Pro
+- Manipulating the dynamic linking loader
 - All the virtual interfaces
 
-Using eBPFs packet parsing and rewrigting abilities we could might be able 
+Using eBPFs packet parsing and rewriting abilities we could might be able 
 to do all or some of these. 
 
 
 For the network generation we could still use smbclient, but for rewriting the packets we can 
-use eBPF. One of the major headaches with the original project was that it had seveal disparate 
-elements implemented in differnt languages. This was a result of the ad hoc nature of the project.
+use eBPF. One of the major headaches with the original project was that it had several disparate 
+elements implemented in different languages. This was a result of the ad hoc nature of the project.
 Being able to build it in a consistent and robust manner would be a major plus.
 
 ** Scenario 2 Wan Simulation
 In this case I had to build a wan simulator between two servers to 
 test acceleration algorithms. From the networking perspective this 
-was more straight forward as it involved using traffic shaping and 
+was more straight forward as it involved using a traffic shaping and 
 firewalling to simulate different WAN scenarios. Most of the work 
 ended up being in the reporting side of the project. 
 
-The traffic shaper and firewall were not designed to work in a scenario 
-where they would be configured in one way and then rapidly reconfigured another way.
+The traffic shaper/firewall was a FreeBSD tool called dummynet: [[http://info.iet.unipi.it/~luigi/dummynet/]]
+
 There were many combinations to test the algorithms in. Stability and consistency 
 was always a concern. 
 
-Both these scenarios leads to more recent projects involving cloud native performance 
-tuning and security work with containers.
-Being able to rapidy redirect traffic, modify packets and scan and monitor network traffic
-and generate reports requires tooling that on one hand has access to all levels of the 
-networking stack, has stable APIs to programitically access data and has supporting
-build tools. 
+** In Conclusion 
+Both of these scenarios lead to more recent projects involving cloud native performance 
+tuning load balancers, and security work with containers.
+
+Being able to rapidly scan, redirect, and modify packets 
+requires tooling that has access to all levels of the 
+networking stack.
 
 The eBPF tools and libraries can be used with Python, C, golang and other languages.
-For this project let's use Rust with the aya crate. Using Rust means we can use Cargo to 
-build both our kernel and userspace code. The aya project although in active development has
-several nice features. 
+For this project let's use Rust with the Aya crate. Using Rust means we can use Cargo to 
+build both our kernel and userspace code. 
 
 Using this example as a jumping off point we can look at some other things that are possible
 with eBPF:

@@ -1,3 +1,5 @@
+M# -**- fill-column: 76; -**-
+
 ---
 layout: post
 title: First Steps with XDP 
@@ -10,18 +12,19 @@ tags: [ebpf, rust, linux]
 
 Welcome to the first step in this XDP tutorial.
 
-The first Ebpf  XDP program will be an exercise in generating and building,
-loading and examining the running programs. This assumes that you have
-already set up the pre requesists !!!INSERT\_HERE!!!
+The first eBPF  XDP program will be an exercise in building,
+loading. This assumes that you have
+already set up the pre requesists and installed the required tools
+and libraries
 Going through these steps will ensure that you can build an XDP program
-using the Clang compiler, load it into the running linux kernel. The Ebpf
+using the Clang compiler, load it into the running linux kernel. The eBPF
 program will load into the running kernel where it will be verified. 
 
-The Ebpf program will run in a virtual machine that is built into the Linux
-kerenel. This virtual machine has nine general purpose registers and one 
+The eBPF program will run in a virtual machine that is built into the Linux
+kerenel. This virtual machine has nine general purpose registers R1-R9 and one 
 read only register R10 that functions as a frame pointer. Clearly running anything
 that can be loaded dyamically in the kernel with elevated privileges can 
-be potentially serious security issue. The Ebpf virtual machine contains 
+be potential security issue. The eBPF virtual machine contains 
 a verifier see <https://docs.kernel.org/bpf/verifier.html>
 The verifier will check and reject if the program that contains:
 
@@ -30,7 +33,7 @@ The verifier will check and reject if the program that contains:
 -   bounds or alignment violations
 -   unreachable instructions
 
-There are other restrictions, consult the documenation 
+There are other restrictions, consult the documenation for more details
 
 If you have worked with rust code with cargo before, you will have cycled 
 through iterations of 
@@ -172,7 +175,7 @@ The generated files:
     
     8 directories, 13 files
 
-Look at the file: <xdp-pass/xdp-pass-ebpf/src/main.rs>
+Look at the file: <xdp-pass/xdp-pass-ebpf/src/main.rs> and modify so it looks like:
 
     #![no_std]
     #![no_main]
@@ -246,7 +249,8 @@ Setting the r0 register to 2 corresponds to returning XDP\_PASS
 
 Use the IOvisor documentation of the opcodes from here <https://github.com/iovisor/bpf-docs/blob/master/eBPF.md>
 
-We can run the program using cargo, as its an XDP program we will have to specify a network interface, using the the loopback 
+We can run the program using cargo, as its an XDP program we will have to specify a network interface. 
+For this introductory example we can use the the loopback 
 interface for convenioence:
 
     $ RUST_LOG=info cargo xtask run -- -i lo
@@ -277,7 +281,7 @@ And then use that to generate an image file with graphviz
 
     $ dot -Tpng /tmp/4509.dot -o ~/4509.png
 
-![img](//4509.png)
+![img](./4509.png)
 
 The comparable C version of the eBPF looks like:
 
@@ -339,11 +343,11 @@ Dissasembly is the same as the Rust version:
 
 # Summary
 
--   We can use Rust with the aya crate to build ebpf programs
+-   We can use Rust with the aya crate to build eBPF programs
 -   Load and unload the eBPF programs we created using 
     -   Cargo
     -   ip net2
 -   Dissasemble the byte code using 
     -   llvm-objdump
-    -   bpftool
+-   Generate graphics to aid in debugging using graophviz.
 
