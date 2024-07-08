@@ -61,11 +61,12 @@ async fn main() -> Result<(), anyhow::Error> {
      //	ayaHashMap::try_from(bpf.map_mut("BLOCKED_IPS").unwrap())?;
     
 
-    let ipaddr = Ipv4Addr::new(10, 11, 1, 1);
+    let ipaddr = Ipv4Addr::new(10, 0, 0, 0);
     //let key = Key::new(24, u32::from(ipaddr).to_be());
 
 
-    let key = Key::new(24, u32::from(ipaddr));  // <--- removed call to_be() need to talk about big endian here
+    let key = Key::new(8, u32::from(ipaddr).to_be());  // <--- removed call to_be() need to talk about big endian here
+    //let key = Key::new(8, u32::from(ipaddr));  // <--- removed call to_be() need to talk about big endian here
     println!("key {}", key.data());
     routes.insert(&key, 1, 0)?;
     //routes.insert(u32::from(ipaddr), 1, 0);

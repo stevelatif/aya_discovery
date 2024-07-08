@@ -86,20 +86,25 @@ fn try_xdp_firewall(ctx: XdpContext) -> Result<u32, ()> {
     
     
     info!(&ctx, "src addr: {:i} destination {:i} length {}", src_addr, dest_addr, total_length);
-    let add = unsafe {  BLOCKED_IPS.get(&Key::new(24, u32::from(src_addr)))} ;
+    let add = unsafe {  BLOCKED_IPS.get(&Key::new(8, u32::from(src_addr).to_be()))} ;
     match add {
-	Some(v)  => {
-	    info!(&ctx, "matched");
-	    return Ok(xdp_action::XDP_DROP);
-	}
 	None => {
-	    info!(&ctx, "not matched");
+	    info!(&ctx, "not matched {:i}", src_addr);
 	    return Ok(xdp_action::XDP_PASS);
 	}
+	Some(v)  => {
+	    info!(&ctx, "matched {:i} : {}" , src_addr, *v);
+	    unsafe {
+		let counter = STATUS_COUNTER
+		    .get_ptr_mut(&0)
+     		    .ok_or(())? ;
+		*counter += 1;
+		info!(&ctx, "count: {}", *counter);
+	    }
+	    //return(Ok(xdp_action::XDP_DROP));
+	}
+	_ => return Ok(xdp_action::XDP_PASS),
     }
-    //let ptr = unsafe { (add.unwrap()).as_ref() };
-    let x = *(add.unwrap());
-    info!(&ctx, "match: {} ", x);
 
     // parse the TCP header
         let source_port = match unsafe { (*ipv4hdr).proto } {
