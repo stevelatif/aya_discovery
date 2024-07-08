@@ -4,7 +4,7 @@ use aya_ebpf::{
     bindings::xdp_action,
     macros::{xdp, map},
     programs::XdpContext,
-    maps::{HashMap, PerCpuArray,  lpm_trie::{LpmTrie, Key},
+    maps::{HashMap, LruPerCpuHashMap, lpm_trie::{LpmTrie, Key},
     }
 };
 use aya_log_ebpf::info;
@@ -12,19 +12,21 @@ use aya_log_ebpf::info;
 use core::mem;
 use network_types::{
     eth::{EthHdr, EtherType},
- ip::{IpProto, Ipv4Hdr},
+    ip::{IpProto, Ipv4Hdr},
     tcp::TcpHdr,
     udp::UdpHdr,
 };
 
 const CPU_CORES: u32 = 16;
 
+#[map(name="STATUS_COUNTER")]
+static mut STATUS_COUNTER: LruPerCpuHashMap<u64, u64> =
+    LruPerCpuHashMap::with_max_entries(CPU_CORES, 0);
 // #[map(name="PKT_CNT_ARRAY")]
 // static mut PACKETS: PerCpuArray<u32> = PerCpuArray::with_max_entries(CPU_CORES , 0);
 
-
-#[map(name = "ROUTES")]
-static mut ROUTES: LpmTrie<u32, u8> =
+#[map(name = "BLOCKED_IPS")]
+static mut BLOCKED_IPS: LpmTrie<u32, u8> =
     LpmTrie::<u32, u8>::with_max_entries(1024, 0);
 
 #[inline(always)]
@@ -66,8 +68,7 @@ fn try_xdp_firewall(ctx: XdpContext) -> Result<u32, ()> {
     //info!(&ctx, "packet size: {}", pkt_size);
     match ethhdr.ether_type {
         EtherType::Ipv4 => {
-	    info!(&ctx, "received IPv4 packet");
-	    //return Ok(xdp_action::XDP_PASS);
+	    // Do nothing
 	}
         EtherType::Ipv6 => {
 	    //info!(&ctx, "received IPv6 packet");
@@ -82,8 +83,23 @@ fn try_xdp_firewall(ctx: XdpContext) -> Result<u32, ()> {
     let src_addr = u32::from_be(unsafe { (*ipv4hdr).src_addr });
     let total_length = u16::from_be(unsafe { (*ipv4hdr).tot_len });
     let dest_addr = u32::from_be(unsafe { (*ipv4hdr).dst_addr });
-
+    
+    
     info!(&ctx, "src addr: {:i} destination {:i} length {}", src_addr, dest_addr, total_length);
+    let add = unsafe {  BLOCKED_IPS.get(&Key::new(24, u32::from(src_addr)))} ;
+    match add {
+	Some(v)  => {
+	    info!(&ctx, "matched");
+	    return Ok(xdp_action::XDP_DROP);
+	}
+	None => {
+	    info!(&ctx, "not matched");
+	    return Ok(xdp_action::XDP_PASS);
+	}
+    }
+    //let ptr = unsafe { (add.unwrap()).as_ref() };
+    let x = *(add.unwrap());
+    info!(&ctx, "match: {} ", x);
 
     // parse the TCP header
         let source_port = match unsafe { (*ipv4hdr).proto } {
@@ -114,8 +130,7 @@ fn try_xdp_firewall(ctx: XdpContext) -> Result<u32, ()> {
         _ => return Err(()),
     };
 
-    info!(&ctx, "source port {}", source_port);
-    info!(&ctx, "source port {}", destination_port);
+    info!(&ctx, "source port {} dest_port {}", source_port, destination_port);
 
     Ok(xdp_action::XDP_PASS)
 }

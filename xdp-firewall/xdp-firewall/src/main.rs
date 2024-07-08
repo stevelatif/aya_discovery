@@ -56,9 +56,9 @@ async fn main() -> Result<(), anyhow::Error> {
         .context("failed to attach the XDP program with default flags - try changing XdpFlags::default() to XdpFlags::SKB_MODE")?;
 
     let mut routes : LpmTrie<_, u32, u8> =
-     	LpmTrie::try_from(bpf.map_mut("ROUTES").unwrap())?;
+     	LpmTrie::try_from(bpf.map_mut("BLOCKED_IPS").unwrap())?;
     //let mut routes : ayaHashMap<_, u32, u8> =
-     //	ayaHashMap::try_from(bpf.map_mut("ROUTES").unwrap())?;
+     //	ayaHashMap::try_from(bpf.map_mut("BLOCKED_IPS").unwrap())?;
     
 
     let ipaddr = Ipv4Addr::new(10, 11, 1, 1);
@@ -88,7 +88,6 @@ async fn main() -> Result<(), anyhow::Error> {
     
     info!("Waiting for Ctrl-C...");
     signal::ctrl_c().await?;
-    
     info!("Exiting...");
 
     Ok(())
