@@ -4,7 +4,11 @@ use aya::{include_bytes_aligned, Bpf};
 use aya_log::BpfLogger;
 use aya::maps::lpm_trie::{LpmTrie, Key};
 //use std::collections::HashMap;
-//2use aya::maps::HashMap as ayaHashMap;
+//use aya::maps::HashMap as ayaHashMap;
+use aya::maps::PerCpuValues;
+use aya::maps::PerCpuArray;
+use aya::util::nr_cpus;
+
 use clap::Parser;
 use log::{info, warn, debug};
 use tokio::signal;
@@ -86,6 +90,22 @@ async fn main() -> Result<(), anyhow::Error> {
     
     //let route_local = Key::new(u32::from(Ipv4Addr::new(10,11,0,1)), 8);
     //routes.insert(&route_local, 1, 0)?;
+
+
+    // Commented out as just here for verification
+    // let array = PerCpuArray::try_from(bpf.map_mut("STATUS_COUNTER").unwrap())?;
+    //     loop {
+    // 	let cc: PerCpuValues<u32> = array.get(&0, 0)?;
+    // 	let mut total : u32 =  0;
+    // 	//println!("{:?} packets",  cc);
+    // 	for ii in 1..nr_cpus().expect("failed to get number of cpus") {
+    // 	    print!("{} ", cc[ii]);
+    // 	    total += cc[ii];
+    // 	}
+    // 	println!("total: {} ", total);
+    // 	std::thread::sleep(std::time::Duration::from_secs(1));
+    // }
+
     
     info!("Waiting for Ctrl-C...");
     signal::ctrl_c().await?;

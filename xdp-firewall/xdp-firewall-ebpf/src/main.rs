@@ -4,7 +4,8 @@ use aya_ebpf::{
     bindings::xdp_action,
     macros::{xdp, map},
     programs::XdpContext,
-    maps::{HashMap, LruPerCpuHashMap, lpm_trie::{LpmTrie, Key},
+    //    maps::{HashMap, LruPerCpuHashMap, lpm_trie::{LpmTrie, Key},
+    maps::{HashMap, PerCpuArray, lpm_trie::{LpmTrie, Key},
     }
 };
 use aya_log_ebpf::info;
@@ -20,10 +21,10 @@ use network_types::{
 const CPU_CORES: u32 = 16;
 
 #[map(name="STATUS_COUNTER")]
-static mut STATUS_COUNTER: LruPerCpuHashMap<u64, u64> =
-    LruPerCpuHashMap::with_max_entries(CPU_CORES, 0);
+//static mut STATUS_COUNTER: LruPerCpuHashMap<u64, u64> =
+//    LruPerCpuHashMap::with_max_entries(CPU_CORES, 0);
 // #[map(name="PKT_CNT_ARRAY")]
-// static mut PACKETS: PerCpuArray<u32> = PerCpuArray::with_max_entries(CPU_CORES , 0);
+static mut STATUS_COUNTER: PerCpuArray<u32> = PerCpuArray::with_max_entries(CPU_CORES , 0);
 
 #[map(name = "BLOCKED_IPS")]
 static mut BLOCKED_IPS: LpmTrie<u32, u8> =
@@ -85,25 +86,31 @@ fn try_xdp_firewall(ctx: XdpContext) -> Result<u32, ()> {
     let dest_addr = u32::from_be(unsafe { (*ipv4hdr).dst_addr });
     
     
-    info!(&ctx, "src addr: {:i} destination {:i} length {}", src_addr, dest_addr, total_length);
-    let add = unsafe {  BLOCKED_IPS.get(&Key::new(8, u32::from(src_addr).to_be()))} ;
+    //info!(&ctx, "src addr: {:i} destination {:i} length {}", src_addr, dest_addr, total_length);
+    let add = unsafe {  BLOCKED_IPS.get(&Key::new(32, u32::from(src_addr).to_be()))} ;
     match add {
 	None => {
 	    info!(&ctx, "not matched {:i}", src_addr);
 	    return Ok(xdp_action::XDP_PASS);
 	}
 	Some(v)  => {
-	    info!(&ctx, "matched {:i} : {}" , src_addr, *v);
 	    unsafe {
 		let counter = STATUS_COUNTER
-		    .get_ptr_mut(&0)
-     		    .ok_or(())? ;
-		*counter += 1;
-		info!(&ctx, "count: {}", *counter);
+		    .get_ptr_mut(0)
+		    .ok_or(())?;
+		*counter +=1;
 	    }
+	    // unsafe {
+	    // 	let counter = STATUS_COUNTER
+	    // 	    .get_ptr_mut(&0)
+     	    // 	    .ok_or(())? ;
+	    // 	*counter += 1;
+	    // 	info!(&ctx, "count: {}", *counter);
+	    // }
+	    info!(&ctx, "matched {:i} : {}" , src_addr, *v);
 	    //return(Ok(xdp_action::XDP_DROP));
 	}
-	_ => return Ok(xdp_action::XDP_PASS),
+	//_ => return Ok(xdp_action::XDP_PASS),
     }
 
     // parse the TCP header
