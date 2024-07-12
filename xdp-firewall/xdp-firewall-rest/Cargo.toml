@@ -1,0 +1,16 @@
+[package]
+name = "rs-xdp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4.8.0"
+chrono = { version = "0.4.38", features = ["serde"] }
+serde = { version = "1.0.203", features = ["derive"] }
+uuid = { version = "1.9.1", features = ["v4"] }
+aya = "0.12"
+aya-log = "0.2"
+env_logger = "0.10"
+libc = "0.2"
+anyhow = "1"
+log = "0.4"
