@@ -1,7 +1,7 @@
 use std::fmt::Error;
 use chrono::prelude::*;
 use std::sync::{Arc, Mutex};
-
+use log::info;
 use crate::models::fw::Fw;
 
 pub struct Database {
@@ -39,7 +39,13 @@ impl Database {
         fws.iter().find(|fw| fw.id == Some(id.to_string())).cloned()
     }
 
-    pub fn update_fw_by_id(&self, id: &str, fw: Fw) -> Option<Fw> {
+    pub fn get_fw_by_interface(&self, interface: &str) -> Option<Fw> {
+        let fws = self.fws.lock().unwrap();
+	info!("get fw by interface");
+        fws.iter().find(|fw| fw.interface == interface.to_string()).cloned()
+    }
+
+    pub fn _update_fw_by_id(&self, id: &str, fw: Fw) -> Option<Fw> {
         let mut fws = self.fws.lock().unwrap();
         let updated_at = Utc::now();
         let fw = Fw {

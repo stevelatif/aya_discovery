@@ -5,9 +5,9 @@ use aya_log::BpfLogger;
 use aya::maps::lpm_trie::{LpmTrie, Key};
 //use std::collections::HashMap;
 //use aya::maps::HashMap as ayaHashMap;
-use aya::maps::PerCpuValues;
-use aya::maps::PerCpuArray;
-use aya::util::nr_cpus;
+//use aya::maps::PerCpuValues;
+//use aya::maps::PerCpuArray;
+//use aya::util::nr_cpus;
 
 use clap::Parser;
 use log::{info, warn, debug};
@@ -56,9 +56,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let program: &mut Xdp = bpf.program_mut("xdp_firewall").unwrap().try_into()?;
     program.load()?;
-    program.attach(&opt.iface, XdpFlags::default())
+    let link_id = program.attach(&opt.iface, XdpFlags::default())
         .context("failed to attach the XDP program with default flags - try changing XdpFlags::default() to XdpFlags::SKB_MODE")?;
-
+    info!("link_id: {:?}", link_id);
+    
     let mut routes : LpmTrie<_, u32, u8> =
      	LpmTrie::try_from(bpf.map_mut("BLOCKED_IPS").unwrap())?;
     //let mut routes : ayaHashMap<_, u32, u8> =
@@ -113,3 +114,5 @@ async fn main() -> Result<(), anyhow::Error> {
 
     Ok(())
 }
+
+
