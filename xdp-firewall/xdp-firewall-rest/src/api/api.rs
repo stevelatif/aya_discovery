@@ -1,6 +1,6 @@
 use actix_web::web;
 use actix_web::get;
-use actix_web::put;
+//use actix_web::put;
 use actix_web::delete;
 use crate::api::helpers;
 use actix_web::{web::{
@@ -8,12 +8,12 @@ use actix_web::{web::{
     Json,
 }, post, HttpResponse};
 use crate::{models::fw::Fw, repository::database::Database};
-
+ use log::info;
 
 
 #[post("/load")]
 pub async fn load_fw(db: Data<Database>, new_fw: Json<Fw>) -> HttpResponse {
-    helpers::load("lo");
+    let _ = helpers::load(&(new_fw.interface));
     let fw = db.create_fw(new_fw.into_inner());
     match fw {
         Ok(load) => HttpResponse::Ok().json(load),
@@ -35,6 +35,18 @@ pub async fn get_fw_by_id(db: web::Data<Database>, id: web::Path<String>) -> Htt
         Some(fw) => HttpResponse::Ok().json(fw),
         None => HttpResponse::NotFound().body("Fw not found"),
     }
+}
+
+#[get("/fw/unload/{interface}")]
+pub async fn unload_by_interface(db: web::Data<Database>, interface: web::Path<String>) -> HttpResponse {
+    info!("unloading : {:?} ...", interface );
+    let _ = helpers::unload_by_interface(&interface);
+    let fw = db.get_fw_by_interface(&interface);
+    match fw {
+        Some(fw) => HttpResponse::Ok().json(fw),
+	None => HttpResponse::NotFound().body("Fw not found from interface"),
+    }
+    //HttpResponse::Ok().json("ok")
 }
 
 // #[put("/todos/{id}")]
@@ -60,7 +72,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         web::scope("/api")
             .service(load_fw)
 	    .service(get_fws)
-	    .service(get_fw_by_id)
+	    .service(unload_by_interface)
 	// .service(update_fw_by_id)
 	    .service(delete_fw_by_id)
     );

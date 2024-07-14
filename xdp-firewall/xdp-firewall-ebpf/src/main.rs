@@ -87,7 +87,7 @@ fn try_xdp_firewall(ctx: XdpContext) -> Result<u32, ()> {
     
     
     //info!(&ctx, "src addr: {:i} destination {:i} length {}", src_addr, dest_addr, total_length);
-    let add = unsafe {  BLOCKED_IPS.get(&Key::new(32, u32::from(src_addr).to_be()))} ;
+    let add = unsafe { BLOCKED_IPS.get(&Key::new(32, u32::from(src_addr).to_be()))} ;
     match add {
 	None => {
 	    info!(&ctx, "not matched {:i}", src_addr);

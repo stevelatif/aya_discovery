@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Fw {
     pub id: Option<String>,
+    pub link_id: Option<String>,
     pub interface: String,
     pub mode: String,
     pub description: Option<String>,
