@@ -13,7 +13,7 @@ use log::info;
 #[post("/load")]
 pub async fn load_fw(db: Data<Database>, new_fw: Json<Fw>) -> HttpResponse {
     match helpers::load(&(new_fw.interface), &(new_fw.ip_address)).await {
-	Ok(v) => {info!("loaded ...")},
+	Ok(_v) => {info!("loaded ...")},
 	Err(e) => { info!("failed to load : {}", e)}
     }
     let fw = db.create_fw(new_fw.into_inner());

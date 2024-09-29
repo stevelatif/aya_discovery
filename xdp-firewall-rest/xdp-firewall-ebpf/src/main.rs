@@ -4,8 +4,8 @@ use aya_ebpf::{
     bindings::xdp_action,
     macros::{xdp, map},
     programs::XdpContext,
-    //    maps::{HashMap, LruPerCpuHashMap, lpm_trie::{LpmTrie, Key},
-    maps::{HashMap, PerCpuArray, lpm_trie::{LpmTrie, Key},
+    //maps::{HashMap, PerCpuArray, lpm_trie::{LpmTrie, Key},
+    maps::{PerCpuArray, lpm_trie::{LpmTrie, Key},
     }
 };
 use aya_log_ebpf::info;
@@ -13,9 +13,10 @@ use aya_log_ebpf::info;
 use core::mem;
 use network_types::{
     eth::{EthHdr, EtherType},
-    ip::{IpProto, Ipv4Hdr},
-    tcp::TcpHdr,
-    udp::UdpHdr,
+    //ip::{IpProto, Ipv4Hdr},
+    ip::{Ipv4Hdr},
+    // tcp::TcpHdr,
+    // udp::UdpHdr,
 };
 
 const CPU_CORES: u32 = 16;
@@ -82,8 +83,8 @@ fn try_xdp_firewall(ctx: XdpContext) -> Result<u32, ()> {
     // parse the IP header
     let ipv4hdr : *const Ipv4Hdr = ptr_at(&ctx, EthHdr::LEN)?;
     let src_addr = u32::from_be(unsafe { (*ipv4hdr).src_addr });
-    let total_length = u16::from_be(unsafe { (*ipv4hdr).tot_len });
-    let dest_addr = u32::from_be(unsafe { (*ipv4hdr).dst_addr });
+    //let total_length = u16::from_be(unsafe { (*ipv4hdr).tot_len });
+    //let dest_addr = u32::from_be(unsafe { (*ipv4hdr).dst_addr });
     
     
     //info!(&ctx, "src addr: {:i} destination {:i} length {}", src_addr, dest_addr, total_length);
@@ -110,43 +111,43 @@ fn try_xdp_firewall(ctx: XdpContext) -> Result<u32, ()> {
 	    // 	info!(&ctx, "count: {}", *counter);
 	    // }
 	    info!(&ctx, "matched {:i} : {}" , src_addr, *v);
-	    return(Ok(xdp_action::XDP_DROP));
+	    return Ok(xdp_action::XDP_DROP);
 	}
 	//_ => return Ok(xdp_action::XDP_PASS),
     }
 
     // parse the TCP header
-    let source_port = match unsafe { (*ipv4hdr).proto } {
-        IpProto::Tcp => {
-            let tcphdr: *const TcpHdr =
-                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
-            u16::from_be(unsafe { (*tcphdr).source })
-        }
-        IpProto::Udp => {
-            let udphdr: *const UdpHdr =
-                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
-            u16::from_be(unsafe { (*udphdr).source })
-        }
-        _ => return Err(()),
-    };
+    // let source_port = match unsafe { (*ipv4hdr).proto } {
+    //     IpProto::Tcp => {
+    //         let tcphdr: *const TcpHdr =
+    //             ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
+    //         u16::from_be(unsafe { (*tcphdr).source })
+    //     }
+    //     IpProto::Udp => {
+    //         let udphdr: *const UdpHdr =
+    //             ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
+    //         u16::from_be(unsafe { (*udphdr).source })
+    //     }
+    //     _ => return Err(()),
+    // };
     
-    let destination_port = match unsafe { (*ipv4hdr).proto } {
-        IpProto::Tcp => {
-            let tcphdr: *const TcpHdr =
-                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
-            u16::from_be(unsafe { (*tcphdr).dest })
-        }
-        IpProto::Udp => {
-            let udphdr: *const UdpHdr =
-                ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
-            u16::from_be(unsafe { (*udphdr).dest })
-        }
-        _ => return Err(()),
-    };
+    // let destination_port = match unsafe { (*ipv4hdr).proto } {
+    //     IpProto::Tcp => {
+    //         let tcphdr: *const TcpHdr =
+    //             ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
+    //         u16::from_be(unsafe { (*tcphdr).dest })
+    //     }
+    //     IpProto::Udp => {
+    //         let udphdr: *const UdpHdr =
+    //             ptr_at(&ctx, EthHdr::LEN + Ipv4Hdr::LEN)?;
+    //         u16::from_be(unsafe { (*udphdr).dest })
+    //     }
+    //     _ => return Err(()),
+    // };
     
-    info!(&ctx, "source port {} dest_port {}", source_port, destination_port);
+    // info!(&ctx, "source port {} dest_port {}", source_port, destination_port);
     
-    Ok(xdp_action::XDP_PASS)
+    // Ok(xdp_action::XDP_PASS)
 }
 
 #[panic_handler]

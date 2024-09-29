@@ -18,7 +18,8 @@ use std::process::Command;
 //use aya::maps::PerCpuArray;
 //use aya::util::nr_cpus;
 
-use log::{info, warn, debug};
+//use log::{info, warn, debug};
+use log::{info};
 //use tokio::signal;
 //use core::net::Ipv4Addr;
 
