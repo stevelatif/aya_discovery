@@ -1,0 +1,18 @@
+[package]
+name = "xdp-firewall-rest-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.1", features = ["derive"] }
+actix-web = "4.8.0"
+chrono = { version = "0.4.38", features = ["serde"] }
+serde = { version = "1.0.203", features = ["derive"] }
+uuid = { version = "1.9.1", features = ["v4"] }
+aya = "0.12"
+aya-log = "0.2"
+env_logger = "0.10"
+libc = "0.2"
+anyhow = "1"
+log = "0.4"
+tokio = { version = "1.25", features = ["macros", "rt", "rt-multi-thread", "net", "signal"] }

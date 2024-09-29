@@ -1,0 +1,301 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running `target/debug/xtask run -- -i lo`
+warning: unused import: `HashMap`
+ --> src/main.rs:7:12
+  |
+7 |     maps::{HashMap, PerCpuArray,  lpm_trie::{LpmTrie, Key},
+  |            ^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `aya_ebpf::helpers::gen::bpf_map_lookup_elem`
+  --> src/main.rs:11:5
+   |
+11 | use aya_ebpf::helpers::gen::bpf_map_lookup_elem;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `IpProto`, `tcp::TcpHdr`, and `udp::UdpHdr`
+  --> src/main.rs:15:10
+   |
+15 |     ip::{IpProto, Ipv4Hdr},
+   |          ^^^^^^^
+16 |     tcp::TcpHdr,
+   |     ^^^^^^^^^^^
+17 |     udp::UdpHdr,
+   |     ^^^^^^^^^^^
+
+warning: unreachable expression
+   --> src/main.rs:138:5
+    |
+114 | /     match ROUTES.get(&key).ok_or(()) {
+115 | |         Ok(t)  =>  {
+116 | |         unsafe {
+117 | |             let counter = PACKETS
+...   |
+127 | |         }
+128 | |     }
+    | |_____- any code following this `match` expression is unreachable, as all arms diverge
+...
+138 |       Ok(xdp_action::XDP_PASS)
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^ unreachable expression
+    |
+    = note: `#[warn(unreachable_code)]` on by default
+
+warning: value assigned to `source_address` is never read
+  --> src/main.rs:55:13
+   |
+55 |     let mut source_address : u32 = 0;
+   |             ^^^^^^^^^^^^^^
+   |
+   = help: maybe it is overwritten before being read?
+   = note: `#[warn(unused_assignments)]` on by default
+
+warning: unused variable: `eth_length`
+  --> src/main.rs:60:10
+   |
+60 |         let eth_length =  z.1;
+   |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_eth_length`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `e`
+  --> src/main.rs:70:8
+   |
+70 |             Err(e) => {
+   |                 ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+  --> src/main.rs:83:6
+   |
+83 |     Err(e) => {
+   |         ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+   --> src/main.rs:125:10
+    |
+125 |         Err(e) => {
+    |             ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unnecessary `unsafe` block
+   --> src/main.rs:116:3
+    |
+113 |     unsafe {
+    |     ------ because it's nested under this `unsafe` block
+...
+116 |         unsafe {
+    |         ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` on by default
+
+warning: `xdp-firewall-ebpf` (bin "xdp-firewall") generated 10 warnings (run `cargo fix --bin "xdp-firewall"` to apply 3 suggestions)
+    Finished `dev` profile [optimized] target(s) in 0.14s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+Error: the BPF_PROG_LOAD syscall failed. Verifier output: 0: R1=ctx(off=0,imm=0) R10=fp0
+0: (bf) r8 = r1                       ; R1=ctx(off=0,imm=0) R8_w=ctx(off=0,imm=0)
+1: (61) r2 = *(u32 *)(r8 +4)          ; R2_w=pkt_end(off=0,imm=0) R8_w=ctx(off=0,imm=0)
+2: (61) r1 = *(u32 *)(r8 +0)          ; R1_w=pkt(off=0,r=0,imm=0) R8_w=ctx(off=0,imm=0)
+3: (bf) r3 = r1                       ; R1_w=pkt(off=0,r=0,imm=0) R3_w=pkt(off=0,r=0,imm=0)
+4: (07) r3 += 14                      ; R3_w=pkt(off=14,r=0,imm=0)
+5: (2d) if r3 > r2 goto pc+194        ; R2_w=pkt_end(off=0,imm=0) R3_w=pkt(off=14,r=14,imm=0)
+6: (71) r2 = *(u8 *)(r1 +12)          ; R1_w=pkt(off=0,r=14,imm=0) R2_w=scalar(umax=255,var_off=(0x0; 0xff))
+7: (71) r1 = *(u8 *)(r1 +13)          ; R1_w=scalar(umax=255,var_off=(0x0; 0xff))
+8: (67) r1 <<= 8                      ; R1_w=scalar(umax=65280,var_off=(0x0; 0xff00))
+9: (4f) r1 |= r2                      ; R1_w=scalar() R2_w=scalar(umax=255,var_off=(0x0; 0xff))
+10: (15) if r1 == 0x8 goto pc+786 797: R1_w=8 R2_w=scalar(umax=255,var_off=(0x0; 0xff)) R3_w=pkt(off=14,r=14,imm=0) R8_w=ctx(off=0,imm=0) R10=fp0
+797: (b7) r6 = 0                      ; R6_w=0
+798: (63) *(u32 *)(r10 -12) = r6      ; R6_w=0 R10=fp0 fp-16=0000????
+799: (bf) r2 = r10                    ; R2_w=fp0 R10=fp0
+800: (07) r2 += -12                   ; R2_w=fp-12
+801: (18) r1 = 0xffff992697b25000     ; R1_w=map_ptr(off=0,ks=4,vs=8192,imm=0)
+803: (85) call bpf_map_lookup_elem#1          ; R0=map_value_or_null(id=2,off=0,ks=4,vs=8192,imm=0)
+804: (15) if r0 == 0x0 goto pc+178    ; R0=map_value(off=0,ks=4,vs=8192,imm=0)
+805: (73) *(u8 *)(r0 +2) = r6         ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+806: (b7) r2 = 12                     ; R2_w=12
+807: (73) *(u8 *)(r0 +1) = r2         ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R2_w=12
+808: (b7) r1 = 1                      ; R1_w=1
+809: (73) *(u8 *)(r0 +0) = r1         ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R1_w=1
+810: (bf) r3 = r0                     ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R3_w=map_value(off=0,ks=4,vs=8192,imm=0)
+811: (07) r3 += 3                     ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0)
+812: (18) r4 = 0xffff992697b26910     ; R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+814: (71) r5 = *(u8 *)(r4 +0)         ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=120
+815: (73) *(u8 *)(r3 +0) = r5         ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=120
+816: (71) r5 = *(u8 *)(r4 +1)         ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=100
+817: (73) *(u8 *)(r3 +1) = r5         ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=100
+818: (71) r5 = *(u8 *)(r4 +2)         ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=112
+819: (73) *(u8 *)(r3 +2) = r5         ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=112
+820: (71) r5 = *(u8 *)(r4 +3)         ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=95
+821: (73) *(u8 *)(r3 +3) = r5         ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=95
+822: (71) r5 = *(u8 *)(r4 +4)         ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=102
+823: (73) *(u8 *)(r3 +4) = r5         ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=102
+824: (71) r5 = *(u8 *)(r4 +5)         ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=105
+825: (73) *(u8 *)(r3 +5) = r5         ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=105
+826: (71) r5 = *(u8 *)(r4 +6)         ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=114
+827: (73) *(u8 *)(r3 +6) = r5         ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=114
+828: (71) r5 = *(u8 *)(r4 +7)         ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=101
+829: (73) *(u8 *)(r3 +7) = r5         ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=101
+830: (71) r5 = *(u8 *)(r4 +8)         ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=119
+831: (73) *(u8 *)(r3 +8) = r5         ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=119
+832: (71) r5 = *(u8 *)(r4 +9)         ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=97
+833: (73) *(u8 *)(r3 +9) = r5         ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=97
+834: (71) r5 = *(u8 *)(r4 +10)        ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=108
+835: (73) *(u8 *)(r3 +10) = r5        ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=108
+836: (71) r5 = *(u8 *)(r4 +11)        ; R4_w=map_value(off=0,ks=4,vs=130,imm=0) R5_w=108
+837: (73) *(u8 *)(r3 +11) = r5        ; R3_w=map_value(off=3,ks=4,vs=8192,imm=0) R5_w=108
+838: (73) *(u8 *)(r0 +20) = r2        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R2_w=12
+839: (b7) r2 = 3                      ; R2_w=3
+840: (73) *(u8 *)(r0 +19) = r2        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R2_w=3
+841: (73) *(u8 *)(r0 +18) = r2        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R2_w=3
+842: (b7) r2 = 2                      ; R2_w=2
+843: (73) *(u8 *)(r0 +15) = r2        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R2_w=2
+844: (73) *(u8 *)(r0 +21) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+845: (73) *(u8 *)(r0 +17) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+846: (73) *(u8 *)(r0 +16) = r1        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R1_w=1
+847: (bf) r2 = r0                     ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R2_w=map_value(off=0,ks=4,vs=8192,imm=0)
+848: (07) r2 += 22                    ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0)
+849: (71) r3 = *(u8 *)(r4 +0)         ; R3_w=120 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+850: (73) *(u8 *)(r2 +0) = r3         ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=120
+851: (71) r3 = *(u8 *)(r4 +1)         ; R3_w=100 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+852: (73) *(u8 *)(r2 +1) = r3         ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=100
+853: (71) r3 = *(u8 *)(r4 +2)         ; R3_w=112 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+854: (73) *(u8 *)(r2 +2) = r3         ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=112
+855: (71) r3 = *(u8 *)(r4 +3)         ; R3_w=95 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+856: (73) *(u8 *)(r2 +3) = r3         ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=95
+857: (71) r3 = *(u8 *)(r4 +4)         ; R3_w=102 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+858: (73) *(u8 *)(r2 +4) = r3         ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=102
+859: (71) r3 = *(u8 *)(r4 +5)         ; R3_w=105 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+860: (73) *(u8 *)(r2 +5) = r3         ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=105
+861: (71) r3 = *(u8 *)(r4 +6)         ; R3_w=114 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+862: (73) *(u8 *)(r2 +6) = r3         ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=114
+863: (71) r3 = *(u8 *)(r4 +7)         ; R3_w=101 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+864: (73) *(u8 *)(r2 +7) = r3         ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=101
+865: (71) r3 = *(u8 *)(r4 +8)         ; R3_w=119 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+866: (73) *(u8 *)(r2 +8) = r3         ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=119
+867: (71) r3 = *(u8 *)(r4 +9)         ; R3_w=97 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+868: (73) *(u8 *)(r2 +9) = r3         ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=97
+869: (71) r3 = *(u8 *)(r4 +10)        ; R3_w=108 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+870: (73) *(u8 *)(r2 +10) = r3        ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=108
+871: (71) r3 = *(u8 *)(r4 +11)        ; R3_w=108 R4_w=map_value(off=0,ks=4,vs=130,imm=0)
+872: (73) *(u8 *)(r2 +11) = r3        ; R2_w=map_value(off=22,ks=4,vs=8192,imm=0) R3_w=108
+873: (b7) r2 = 11                     ; R2_w=11
+874: (73) *(u8 *)(r0 +35) = r2        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R2_w=11
+875: (73) *(u8 *)(r0 +36) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+876: (b7) r2 = 4                      ; R2_w=4
+877: (73) *(u8 *)(r0 +34) = r2        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R2_w=4
+878: (bf) r3 = r0                     ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R3_w=map_value(off=0,ks=4,vs=8192,imm=0)
+879: (07) r3 += 37                    ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0)
+880: (18) r4 = 0xffff992697b2691c     ; R4_w=map_value(off=12,ks=4,vs=130,imm=0)
+882: (71) r5 = *(u8 *)(r4 +0)         ; R4_w=map_value(off=12,ks=4,vs=130,imm=0) R5_w=115
+883: (73) *(u8 *)(r3 +0) = r5         ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0) R5_w=115
+884: (71) r5 = *(u8 *)(r4 +1)         ; R4_w=map_value(off=12,ks=4,vs=130,imm=0) R5_w=114
+885: (73) *(u8 *)(r3 +1) = r5         ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0) R5_w=114
+886: (71) r5 = *(u8 *)(r4 +2)         ; R4_w=map_value(off=12,ks=4,vs=130,imm=0) R5_w=99
+887: (73) *(u8 *)(r3 +2) = r5         ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0) R5_w=99
+888: (71) r5 = *(u8 *)(r4 +3)         ; R4_w=map_value(off=12,ks=4,vs=130,imm=0) R5_w=47
+889: (73) *(u8 *)(r3 +3) = r5         ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0) R5_w=47
+890: (71) r5 = *(u8 *)(r4 +4)         ; R4_w=map_value(off=12,ks=4,vs=130,imm=0) R5_w=109
+891: (73) *(u8 *)(r3 +4) = r5         ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0) R5_w=109
+892: (71) r5 = *(u8 *)(r4 +5)         ; R4_w=map_value(off=12,ks=4,vs=130,imm=0) R5_w=97
+893: (73) *(u8 *)(r3 +5) = r5         ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0) R5_w=97
+894: (71) r5 = *(u8 *)(r4 +6)         ; R4_w=map_value(off=12,ks=4,vs=130,imm=0) R5_w=105
+895: (73) *(u8 *)(r3 +6) = r5         ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0) R5_w=105
+896: (71) r5 = *(u8 *)(r4 +7)         ; R4_w=map_value(off=12,ks=4,vs=130,imm=0) R5_w=110
+897: (73) *(u8 *)(r3 +7) = r5         ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0) R5_w=110
+898: (71) r5 = *(u8 *)(r4 +8)         ; R4_w=map_value(off=12,ks=4,vs=130,imm=0) R5_w=46
+899: (73) *(u8 *)(r3 +8) = r5         ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0) R5_w=46
+900: (71) r5 = *(u8 *)(r4 +9)         ; R4_w=map_value(off=12,ks=4,vs=130,imm=0) R5_w=114
+901: (73) *(u8 *)(r3 +9) = r5         ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0) R5_w=114
+902: (71) r5 = *(u8 *)(r4 +10)        ; R4_w=map_value(off=12,ks=4,vs=130,imm=0) R5_w=115
+903: (73) *(u8 *)(r3 +10) = r5        ; R3_w=map_value(off=37,ks=4,vs=8192,imm=0) R5_w=115
+904: (b7) r3 = 20                     ; R3_w=20
+905: (73) *(u8 *)(r0 +67) = r3        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R3_w=20
+906: (73) *(u8 *)(r0 +58) = r1        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R1_w=1
+907: (b7) r1 = 8                      ; R1_w=8
+908: (73) *(u8 *)(r0 +56) = r1        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R1_w=8
+909: (b7) r1 = 63                     ; R1_w=63
+910: (73) *(u8 *)(r0 +51) = r1        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R1_w=63
+911: (73) *(u8 *)(r0 +68) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+912: (73) *(u8 *)(r0 +65) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+913: (73) *(u8 *)(r0 +64) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+914: (73) *(u8 *)(r0 +63) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+915: (73) *(u8 *)(r0 +62) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+916: (73) *(u8 *)(r0 +61) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+917: (73) *(u8 *)(r0 +60) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+918: (73) *(u8 *)(r0 +59) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+919: (73) *(u8 *)(r0 +57) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+920: (73) *(u8 *)(r0 +54) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+921: (73) *(u8 *)(r0 +53) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+922: (73) *(u8 *)(r0 +52) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+923: (73) *(u8 *)(r0 +50) = r6        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R6=0
+924: (73) *(u8 *)(r0 +49) = r2        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R2_w=4
+925: (b7) r1 = 17                     ; R1_w=17
+926: (73) *(u8 *)(r0 +66) = r1        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R1_w=17
+927: (b7) r1 = 6                      ; R1_w=6
+928: (73) *(u8 *)(r0 +55) = r1        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R1_w=6
+929: (b7) r1 = 5                      ; R1_w=5
+930: (73) *(u8 *)(r0 +48) = r1        ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R1_w=5
+931: (bf) r1 = r0                     ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R1_w=map_value(off=0,ks=4,vs=8192,imm=0)
+932: (07) r1 += 69                    ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0)
+933: (18) r2 = 0xffff992697b26927     ; R2_w=map_value(off=23,ks=4,vs=130,imm=0)
+935: (71) r3 = *(u8 *)(r2 +0)         ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=114
+936: (73) *(u8 *)(r1 +0) = r3         ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=114
+937: (71) r3 = *(u8 *)(r2 +1)         ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=101
+938: (73) *(u8 *)(r1 +1) = r3         ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=101
+939: (71) r3 = *(u8 *)(r2 +2)         ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=99
+940: (73) *(u8 *)(r1 +2) = r3         ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=99
+941: (71) r3 = *(u8 *)(r2 +3)         ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=101
+942: (73) *(u8 *)(r1 +3) = r3         ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=101
+943: (71) r3 = *(u8 *)(r2 +4)         ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=105
+944: (73) *(u8 *)(r1 +4) = r3         ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=105
+945: (71) r3 = *(u8 *)(r2 +5)         ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=118
+946: (73) *(u8 *)(r1 +5) = r3         ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=118
+947: (71) r3 = *(u8 *)(r2 +6)         ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=101
+948: (73) *(u8 *)(r1 +6) = r3         ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=101
+949: (71) r3 = *(u8 *)(r2 +7)         ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=100
+950: (73) *(u8 *)(r1 +7) = r3         ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=100
+951: (71) r3 = *(u8 *)(r2 +8)         ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=32
+952: (73) *(u8 *)(r1 +8) = r3         ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=32
+953: (71) r3 = *(u8 *)(r2 +9)         ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=73
+954: (73) *(u8 *)(r1 +9) = r3         ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=73
+955: (71) r3 = *(u8 *)(r2 +10)        ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=80
+956: (73) *(u8 *)(r1 +10) = r3        ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=80
+957: (71) r3 = *(u8 *)(r2 +11)        ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=118
+958: (73) *(u8 *)(r1 +11) = r3        ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=118
+959: (71) r3 = *(u8 *)(r2 +12)        ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=52
+960: (73) *(u8 *)(r1 +12) = r3        ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=52
+961: (71) r3 = *(u8 *)(r2 +13)        ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=32
+962: (73) *(u8 *)(r1 +13) = r3        ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=32
+963: (71) r3 = *(u8 *)(r2 +14)        ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=112
+964: (73) *(u8 *)(r1 +14) = r3        ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=112
+965: (71) r3 = *(u8 *)(r2 +15)        ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=97
+966: (73) *(u8 *)(r1 +15) = r3        ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=97
+967: (71) r3 = *(u8 *)(r2 +16)        ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=99
+968: (73) *(u8 *)(r1 +16) = r3        ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=99
+969: (71) r3 = *(u8 *)(r2 +17)        ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=107
+970: (73) *(u8 *)(r1 +17) = r3        ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=107
+971: (71) r3 = *(u8 *)(r2 +18)        ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=101
+972: (73) *(u8 *)(r1 +18) = r3        ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=101
+973: (71) r3 = *(u8 *)(r2 +19)        ; R2_w=map_value(off=23,ks=4,vs=130,imm=0) R3_w=116
+974: (73) *(u8 *)(r1 +19) = r3        ; R1_w=map_value(off=69,ks=4,vs=8192,imm=0) R3_w=116
+975: (bf) r1 = r8                     ; R1_w=ctx(off=0,imm=0) R8=ctx(off=0,imm=0)
+976: (18) r2 = 0xffff992697b26e00     ; R2_w=map_ptr(off=0,ks=4,vs=4,imm=0)
+978: (18) r3 = 0xffffffff             ; R3_w=4294967295
+980: (bf) r4 = r0                     ; R0=map_value(off=0,ks=4,vs=8192,imm=0) R4_w=map_value(off=0,ks=4,vs=8192,imm=0)
+981: (b7) r5 = 89                     ; R5_w=89
+982: (85) call bpf_perf_event_output#25       ; R0=scalar()
+983: (61) r2 = *(u32 *)(r8 +4)        ; R2_w=pkt_end(off=0,imm=0) R8=ctx(off=0,imm=0)
+984: (7b) *(u64 *)(r10 -24) = r8      ; R8=ctx(off=0,imm=0) R10=fp0 fp-24_w=ctx
+985: (61) r1 = *(u32 *)(r8 +0)        ; R1_w=pkt(off=0,r=0,imm=0) R8=ctx(off=0,imm=0)
+986: (bf) r3 = r1                     ; R1_w=pkt(off=0,r=0,imm=0) R3_w=pkt(off=0,r=0,imm=0)
+987: (07) r3 += 22                    ; R3_w=pkt(off=22,r=0,imm=0)
+988: (2d) if r3 > r2 goto pc+247      ; R2_w=pkt_end(off=0,imm=0) R3_w=pkt(off=22,r=22,imm=0)
+989: (79) r1 = *(u64 *)(r1 +14)       ; R1_w=scalar()
+990: (61) r2 = *(u32 *)(r1 +12)
+R1 invalid mem access 'scalar'
+verification time 1452 usec
+stack depth 24+0+0+0
+processed 389 insns (limit 1000000) max_states_per_insn 0 total_states 5 peak_states 5 mark_read 2
+
+
+Caused by:
+    Permission denied (os error 13)
+Failed to run `sudo -E target/debug/xdp-firewall -i lo`
