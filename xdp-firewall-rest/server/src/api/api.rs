@@ -9,7 +9,17 @@ use actix_web::{web::{
 use crate::{models::fw::Fw, repository::database::Database};
 use log::info;
 
-//curl -XPOST 127.0.0.1:8080/api/load -H "Content-Type: application/json" -d '{"interface":"lo", "mode":"", "ip_address":"127.0.0.1"}'
+/// Load the firewall - this call makes the initial call to load the XDP
+/// program. The standard way of building with AYA is to load the
+/// eBPF bits into the binary at compile time from
+///target/bpfel-unknown-none/debug/xdp-firewall
+/// A record is made into the database
+/// parameters:
+/// * interface. Required to specify which interface to run the firewall on
+/// * ip/range. Required to specify the ip addresses to block
+/// Example:
+///curl -XPOST 127.0.0.1:8080/api/load -H "Content-Type: application/json" -d '{"interface":"lo", "mode":"", "ip_address":"127.0.0.1"}'
+/// returns the insert message from the database
 #[post("/load")]
 pub async fn load_fw(db: Data<Database>, new_fw: Json<Fw>) -> HttpResponse {
     match helpers::load(&(new_fw.interface), &(new_fw.ip_address)).await {
@@ -23,12 +33,15 @@ pub async fn load_fw(db: Data<Database>, new_fw: Json<Fw>) -> HttpResponse {
     }
 }
 
-// curl 127.0.0.1:8080/api/fw
+/// List the loaded firewall rules from the database
+/// Example:
+/// curl 127.0.0.1:8080/api/fw
 #[get("/fw")]
 pub async fn get_fws(db: web::Data<Database>) -> HttpResponse {
     let fws = db.get_fws();
     HttpResponse::Ok().json(fws)
 }
+
 
 #[get("/fw/{id}")]
 pub async fn get_fw_by_id(db: web::Data<Database>, id: web::Path<String>) -> HttpResponse {
